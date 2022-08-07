@@ -43,6 +43,12 @@ contract MainFundToken is ERC20, MainFundHelper, IMainFundToken {
         _mint(initialAccount, initialAmount);
     }
 
+    /**
+     * Mints the token to a user.
+     *
+     * @param account - The user to mint to.
+     * @param amount - The amount to mint.
+     */
     function mint(address account, uint256 amount) external {
         // Only callable by the front office, accounting, or fund contracts
         require(
@@ -54,6 +60,12 @@ contract MainFundToken is ERC20, MainFundHelper, IMainFundToken {
         _mint(account, amount);
     }
 
+    /**
+     * Burns the token from a user.
+     *
+     * @param account - The user to burn from.
+     * @param amount - The amount to burn.
+     */
     function burn(address account, uint256 amount) external {
         // Only callable by the front office, accounting, or fund contracts
         require(

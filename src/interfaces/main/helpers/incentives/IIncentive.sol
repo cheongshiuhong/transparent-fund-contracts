@@ -28,6 +28,11 @@ import "../../../../lib/Decimals.sol";
  * @notice Interface for an instance of the main fund's incentives.
  */
 interface IIncentive {
+    /*******************************/
+    /** Functions to read metadata */
+    /*******************************/
+    function getName() external pure returns (string memory);
+
     /************************************/
     /** Functions to serve as modifiers */
     /************************************/

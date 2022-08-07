@@ -8,6 +8,7 @@ export type Token = {
 
 export type PancakeswapProtocols = {
     cakeToken: Contract;
+    cakeTokenOracle: Contract;
     syrupBar: Contract;
     masterChef: Contract;
     masterChefV2: Contract;
@@ -33,6 +34,7 @@ export type PancakeswapProtocols = {
 export type VenusProtocols = {
     comptrollerG5: Contract;
     xvs: Contract;
+    xvsOracle: Contract;
     lens: Contract;
     lendingPools: {
         underlying: Contract;

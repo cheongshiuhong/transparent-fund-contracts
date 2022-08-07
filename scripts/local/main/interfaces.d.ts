@@ -19,6 +19,7 @@ export type MainFund = {
     fundToken: Contract;
     cao: Contract;
     caoToken: Contract;
+    caoParameters: Contract;
     humanResources: Contract;
     accounting: Contract;
     frontOffice: Contract;

@@ -10,3 +10,5 @@ cache
 artifacts
 
 *-config-*.yaml
+
+/outputs/**/*.yaml

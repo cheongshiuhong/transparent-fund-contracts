@@ -54,8 +54,9 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
     mapping(uint256 => EnumerableSet.AddressSet) private _voters;
 
     /** Governance events */
-    event ProposalCreated(uint256 proposalId, address proposer, string description);
-    event Vote(uint256 proposalId, address voter, Direction direction);
+    event ProposalCreated(uint256 indexed proposalId, address proposer, string description);
+    event Vote(uint256 indexed proposalId, address voter, Direction direction);
+    event ProposalExecuted(uint256 indexed proposalId);
 
     /** Constructor */
     constructor(
@@ -113,14 +114,51 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
     function getOperators() external view override returns (address[] memory) {
         return _operators.values();
     }
-    function getRegisteredTokens() external view override returns (address[] memory) {
-        return _tokens.values();
+    function getNumRegisteredTokens() external view override returns (uint256) {
+        return _tokens.length();
     }
-    function getRegisteredProtocols() external view override returns (address[] memory) {
-        return _protocols.values();
+    function getNumRegisteredProtocols() external view override returns (uint256) {
+        return _protocols.length();
     }
-    function getRegisteredUtils() external view override returns (address[] memory) {
-        return _utils.values();
+    function getNumRegisteredUtils() external view override returns (uint256) {
+        return _utils.length();
+    }
+    // TODO: Batch these getters since we might have alot of entries
+    function getRegisteredTokens(
+        uint256 offset,
+        uint256 limit
+    ) external view override returns (address[] memory) {
+        address[] memory tokensAddresses = _tokens.values();
+        return _batchAddresses(tokensAddresses, offset, limit);
+    }
+    function getRegisteredProtocols(
+        uint256 offset,
+        uint256 limit
+    ) external view override returns (address[] memory) {
+        address[] memory protocolsAddresses = _protocols.values();
+        return _batchAddresses(protocolsAddresses, offset, limit);
+    }
+    function getRegisteredUtils(
+        uint256 offset,
+        uint256 limit
+    ) external view override returns (address[] memory) {
+        address[] memory utilsAddresses = _utils.values();
+        return _batchAddresses(utilsAddresses, offset, limit);
+    }
+    function _batchAddresses(
+        address[] memory addresses,
+        uint256 offset,
+        uint256 limit
+    ) internal pure returns (address[] memory) {
+        uint256 numOutput = _min(addresses.length - offset, limit);
+        address[] memory output = new address[](numOutput);
+        for (uint256 i = 0; i < numOutput; i++) {
+            output[i] = addresses[offset + i];
+        }
+        return output;
+    }
+    function _min(uint256 val1, uint256 val2) internal pure returns (uint256) {
+        return val1 < val2 ? val1 : val2;
     }
 
     /***********************************/
@@ -137,6 +175,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
         _managers.add(managerAddress);
     }
     function removeManager(address managerAddress) external onlyGovernance override {
+        require(_managers.length() > 1, "Ops Governor: Cannot remove the last manager");
         _managers.remove(managerAddress);
     }
     function addOperator(address operatorAddress) external onlyGovernance override {
@@ -211,7 +250,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
             Proposal({
                 proposer: _msgSender(),
                 description: description,
-                deadline: block.timestamp + duration,
+                deadline: block.number + duration,
                 callData: callData,
                 votesFor: 1, // Proposer is by default in favour
                 votesAgainst: 0,
@@ -243,7 +282,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
 
         // Require that voting is still active
         require(
-            _proposals[proposalId].deadline >= block.timestamp,
+            _proposals[proposalId].deadline >= block.number,
             "OpsGovernor: voting for the proposal has ended"
         );
 
@@ -284,10 +323,13 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
             "OpsGovernor: proposal is not pending execution"
         );
 
-        // Require either deadline is up or more than half have voted in favour
+        // Require that the proposal is executable (still pending)
+        // Require either the deadline is up or more than half have voted in favour
+        uint256 numManagers = _managers.length();
+        uint256 minVotes = numManagers / 2 + (numManagers % 2 == 0 ? 0 : 1);
         require(
-            block.timestamp > proposal.deadline
-            || proposal.votesFor > _managers.length() / 2,
+            block.number > proposal.deadline
+            || proposal.votesFor >= minVotes,
             "OpsGovernor: voting is still in progress"
         );
 
@@ -295,6 +337,8 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
         if (proposal.votesFor <= proposal.votesAgainst) {
             _activeProposalsIds.remove(proposalId);
             _proposals[proposalId].status = Status.REJECTED;
+
+            emit ProposalExecuted(proposalId);
             return Status.REJECTED;
         }
 
@@ -304,13 +348,17 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
 
         // Update the status and return it
         if (success) {
-            _proposals[proposalId].status = Status.APPROVED_AND_EXECUTED;
             _activeProposalsIds.remove(proposalId);
+            _proposals[proposalId].status = Status.APPROVED_AND_EXECUTED;
+
+            emit ProposalExecuted(proposalId);
             return Status.APPROVED_AND_EXECUTED;
         }
 
-        _proposals[proposalId].status = Status.APPROVED_BUT_FAILED;
         _activeProposalsIds.remove(proposalId);
+        _proposals[proposalId].status = Status.APPROVED_BUT_FAILED;
+
+        emit ProposalExecuted(proposalId);
         return Status.APPROVED_BUT_FAILED;
     }
 
@@ -340,5 +388,28 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
      */
     function getProposal(uint256 proposalId) external view override returns (Proposal memory) {
         return _proposals[proposalId];
+    }
+
+    /**
+     * Function to check whether a proposal is executable now.
+     *
+     * @param proposalId - The id of the proposal to check.
+     * @return - Whether the proposal is executable now.
+     */
+    function getIsProposalExecutable(
+        uint256 proposalId
+    ) external override view returns (bool) {
+        Proposal memory proposal = _proposals[proposalId];
+
+        // Require that the proposal is executable (still pending)
+        // Require either the deadline is up or at least half have voted in favour
+        uint256 numManagers = _managers.length();
+        uint256 minVotes = numManagers / 2 + (numManagers % 2 == 0 ? 0 : 1);
+        return proposal.status == Status.PENDING
+            && (
+                block.number > proposal.deadline
+                || proposal.votesFor >= minVotes
+                || proposal.votesAgainst >= minVotes
+            );
     }
 }

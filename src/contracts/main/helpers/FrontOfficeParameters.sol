@@ -41,7 +41,7 @@ contract FrontOfficeParameters is MainFundHelper, IFrontOfficeParameters {
     EnumerableAddressToAddressMap.Map private _allowedTokensAndOracles;
     uint256 private _maxSingleWithdrawalFundTokenAmount;
 
-    /** Constructor  */
+    /** Constructor */
     constructor(
         address fundAddress,
         address[] memory initialAllowedTokens,

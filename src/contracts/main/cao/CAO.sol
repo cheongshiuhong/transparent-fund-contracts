@@ -29,12 +29,13 @@ import "../../../lib/Decimals.sol";
 import "../../../lib/ValuationHelpers.sol";
 import "../../../interfaces/main/cao/ICAO.sol";
 import "../../../interfaces/main/cao/helpers/IHumanResources.sol";
+import "../../../interfaces/main/cao/helpers/ICAOParameters.sol";
 import "../helpers/MainFundToken.sol";
 import "./helpers/HumanResources.sol";
 import "./CAOGovernor.sol";
 
 /**
- * @title ICAO
+ * @title CAO
  * @author Translucent
  *
  * @notice The contract for the Centralized Autonomous Organization.
@@ -43,38 +44,49 @@ contract CAO is CAOGovernor, ICAO {
     /** Libraries */
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableAddressToAddressMap for EnumerableAddressToAddressMap.Map;
     using Decimals for Decimals.Number;
+
+    /** Parameters */
+    ICAOParameters private _parameters;
 
     /** Helpers */
     IHumanResources private _humanResources;
 
-    /** Access states */
-    address private _taskRunner;
-
-    /** Reserves states */
-    EnumerableAddressToAddressMap.Map private _reserveTokensAndOracles;
-    EnumerableSet.AddressSet private _fundTokens;
-
     /** Remuneration events */
-    event RemunerationRedeemed(address redeemer, address token, uint256 amount);
+    event RemunerationRedeemed(address indexed redeemer, address token, uint256 amount);
 
     /** Constructor */
     constructor(
         string memory name,
         string memory symbol,
         address[] memory initialHolders,
-        uint256[] memory initialAmounts,
-        address initialTaskRunner
-    ) CAOGovernor(name, symbol, initialHolders, initialAmounts) {
-        _taskRunner = initialTaskRunner;
+        uint256[] memory initialAmounts
+    ) CAOGovernor(name, symbol, initialHolders, initialAmounts) {}
+
+    /************************************************/
+    /** Functions to set the parameters and helpers */
+    /************************************************/
+    function setCAOParameters(
+        address parametersAddress
+    )  external override {
+        // If already set, run checks first
+        if (address(_parameters) != address(0)) {
+            // Only callable by the CAO through governance if already set
+            requireCAOGovernance(_msgSender());
+            require(
+                parametersAddress != address(0),
+                "CAO: cannot migrate parameters to the 0x0 address"
+            );
+        }
+
+        // Set the parameters
+        _parameters = ICAOParameters(parametersAddress);
     }
 
-    /*********************************/
-    /** Functions to set the helpers */
-    /*********************************/
-    function setCAOHelpers(address humanResourcesAddress) external override {
+    function setCAOHelpers(
+        address humanResourcesAddress
+    ) external override {
         // If already set, run checks first
         if (address(_humanResources) != address(0)) {
             // Only callable by the CAO through governance if already set
@@ -100,6 +112,19 @@ contract CAO is CAOGovernor, ICAO {
     /** Functions to act as modifiers */
     /**********************************/
     /**
+     * Function that can be called in a function to ensure that only the CAO
+     * can call it either for governance or not.
+     *
+     * @param caller - The address to check.
+     */
+    function requireCAO(address caller) external view override {
+        require(
+            caller == address(this),
+            "CAO: can only be called by the CAO"
+        );
+    }
+
+    /**
      * Function that can be called in a function to ensure that only the
      * CAO's delegated task runner is able to call that function.
      *
@@ -107,157 +132,9 @@ contract CAO is CAOGovernor, ICAO {
      */
     function requireCAOTaskRunner(address caller) external view override {
         require(
-            caller == _taskRunner,
+            caller == _parameters.getTaskRunner(),
             "CAO: can only be called by the CAO's task runner"
         );
-    }
-
-    /******************************************/
-    /** Function for managing the task runner */
-    /******************************************/
-    /**
-     * Gets the current task runner.
-     *
-     * @return - The address of the current task runner.
-     */
-    function getTaskRunner() external view returns (address) {
-        return _taskRunner;
-    }
-
-    /**
-     * Sets the task runner used for running tasks.
-     *
-     * @param newTaskRunnerAddress - The new task runner to be set.
-     */
-    function setTaskRunner(address newTaskRunnerAddress) external {
-        // Only callable by the CAO through governance
-        requireCAOGovernance(_msgSender());
-
-        // Cannot set to the 0x0 address
-        require(
-            newTaskRunnerAddress != address(0),
-            "CAO: cannot set task runner to the 0x0 address"
-        );
-
-        // Set the task runner
-        _taskRunner = newTaskRunnerAddress;
-    }
-
-    /**
-     * Called in emergencies by CAO token holders.
-     */
-    function unsetTaskRunner() external {
-        // Only callable by a CAO token holder
-        requireCAOTokenHolder(_msgSender());
-        _taskRunner = address(0);
-    }
-
-    /**********************************************/
-    /** Functions for managing the reserve tokens */
-    /**********************************************/
-    /**
-     * Gets the reserve tokens.
-     *
-     * @return - The array of reserve tokens addresses.
-     */
-    function getReserveTokens() external view override returns (address[] memory) {
-        return _reserveTokensAndOracles.keys();
-    }
-
-    /**
-     * Gets the oracle for a reserve token.
-     *
-     * @return - The address of the reserve token's oracle.
-     */
-    function getReserveTokenOracle(
-        address tokenAddress
-    ) external view override returns (address) {
-        return _reserveTokensAndOracles.get(tokenAddress);
-    }
-
-    /**
-     * Sets the oracles for the input reserve tokens.
-     *
-     * @notice Only callable via governance proecss.
-     * @notice overrides if already exists.
-     *
-     * @param tokensAddresses - The array of reserve tokens to add/update.
-     * @param oraclesAddresses - The array of oracles to set.
-     */
-    function setReserveTokensOracles(
-        address[] calldata tokensAddresses,
-        address[] calldata oraclesAddresses
-    ) external override {
-        // Only callable by the CAO through governance
-        requireCAOGovernance(_msgSender());
-
-        // Require that array lengths are valid
-        require(
-            tokensAddresses.length == oraclesAddresses.length,
-            "CAO: invalid array lengths"
-        );
-
-        for (uint256 i = 0; i < tokensAddresses.length; i++) {
-            _reserveTokensAndOracles.set(tokensAddresses[i], oraclesAddresses[i]);
-        }
-    }
-
-    /**
-     * Removes reserve tokens.
-     *
-     * @notice Only callable via governance proecss.
-     *
-     * @param tokensAddresses - The array of reserve tokens to remove.
-     */
-    function removeReserveTokens(
-        address[] calldata tokensAddresses
-    ) external override {
-        // Only callable by the CAO through governance
-        requireCAOGovernance(_msgSender());
-
-        for (uint256 i = 0; i < tokensAddresses.length; i++) {
-            _reserveTokensAndOracles.remove(tokensAddresses[i]);
-        }
-    }
-
-    /*******************************************/
-    /** Functions for managing the fund tokens */
-    /*******************************************/
-    /**
-     * Gets the fund tokens.
-     *
-     * @return - The array of fund tokens addresses.
-     */
-    function getFundTokens() external view returns (address[] memory) {
-        return _fundTokens.values();
-    }
-
-    /**
-     * Adds fund tokens.
-     *
-     * @param fundTokensAddresses - The array of fund tokens addreses to add.
-     */
-    function addFundTokens(address[] calldata fundTokensAddresses) external {
-        // Only callable by the CAO through governance
-        requireCAOGovernance(_msgSender());
-        
-        for (uint256 i = 0; i < fundTokensAddresses.length; i++) {
-            _fundTokens.add(fundTokensAddresses[i]);
-        }
-    }
-
-    /**
-     * Removes fund tokens.
-     *
-     * @param fundTokensAddresses - The array of fund tokens addreses to remove.
-     */
-    function removeFundTokens(address[] calldata fundTokensAddresses) external {
-        // Only callable by the CAO through governance
-        requireCAOGovernance(_msgSender());
-        
-        for (uint256 i = 0; i < fundTokensAddresses.length; i++) {
-            _fundTokens.remove(fundTokensAddresses[i]);
-        }
     }
 
     /****************************************/
@@ -267,7 +144,7 @@ contract CAO is CAOGovernor, ICAO {
      * Computes the amount of a given token that can be redeemed.
      *
      * @param tokenAddress - The address of the token to redeem.
-     * @return - The amount of the tokens that 
+     * @return - The amount of the tokens that can be redeemed.
      */
     function computeTokenRedeemAmount(
         address tokenAddress
@@ -276,10 +153,11 @@ contract CAO is CAOGovernor, ICAO {
         Decimals.Number memory currentRemunerationValue =
             _humanResources.getEmployeeCurrentRemuneration(_msgSender());
 
+        ICAOParameters parameters = _parameters;
         // Check if token is a reserve token
-        if (_reserveTokensAndOracles.contains(tokenAddress)) {
+        if (parameters.isReserveToken(tokenAddress)) {
             // Retrieve the oracle address
-            address oracleAddress = _reserveTokensAndOracles.get(tokenAddress);
+            address oracleAddress = parameters.getReserveTokenOracle(tokenAddress);
 
             // Return the computed amount
             return ValuationHelpers.getAmountFromOracleAndTargetValue(
@@ -290,7 +168,7 @@ contract CAO is CAOGovernor, ICAO {
         }
 
         // Check if token is a fund token
-        if (_fundTokens.contains(tokenAddress)) {
+        if (parameters.isFundToken(tokenAddress)) {
             MainFundToken fundToken = MainFundToken(tokenAddress);
 
             // Return the computed amount

@@ -9,7 +9,6 @@ import interact from "./interact";
 /** Main function */
 async function main() {
     const state = { signers: await ethers.getSigners(), NUM_TOKENS: 3 };
-    // return setup(state).then(deploy);
     return setup(state).then(deploy).then(interact);
 }
 

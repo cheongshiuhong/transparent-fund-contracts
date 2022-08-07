@@ -35,8 +35,6 @@ import "../../../interfaces/main/helpers/IFrontOfficeParameters.sol";
 import "../../../interfaces/main/helpers/IFrontOffice.sol";
 import "./MainFundPausableHelper.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title FrontOffice
  * @author Translucent
@@ -80,6 +78,13 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
     modifier onlyAllowedTokens(address tokenAddress) {
         _parameters.requireAllowedToken(tokenAddress);
         _;
+    }
+
+    /****************************************************/
+    /** Function to get the parameters contract address */
+    /****************************************************/
+    function getParametersAddress() external view override returns (address) {
+        return address(_parameters);
     }
 
     /******************************************/
@@ -355,8 +360,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
                 );
 
             // Withdrawals - return the deposited fund tokens
-            else
-                fundToken.safeTransfer(request.user, request.amountIn);
+            else fundToken.safeTransfer(request.user, request.amountIn);
         }
     }
 
@@ -385,9 +389,8 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         getFund().getCAO().requireCAOTaskRunner(_msgSender());
 
         // Load the working data into memory
-        DepositsWorking memory working = _loadDepositsWorking(
-            tokenAddress, parameters
-        );
+        DepositsWorking memory working =
+            _loadDepositsWorking(tokenAddress, parameters);
 
         // Get the reference to the queue and compute the length for iterating
         FrontOfficeHelpers.Queue storage queue = _depositsQueues[tokenAddress];
@@ -437,6 +440,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
             // Handle errors
             if (validityCode == IIncentivesManager.ValidityCode.NOT_FOUND)
                 requestRef.setIncentiveNotFound(computedAmountOut);
+
             else if (validityCode == IIncentivesManager.ValidityCode.NOT_QUALIFIED)
                 requestRef.setIncentiveNotQualified(computedAmountOut);
 
@@ -512,9 +516,8 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         getFund().getCAO().requireCAOTaskRunner(_msgSender());
 
         // Load the working data into memory
-        WithdrawalsWorking memory working = _loadWithdrawalsWorking(
-            tokenAddress, parameters
-        );
+        WithdrawalsWorking memory working =
+            _loadWithdrawalsWorking(tokenAddress, parameters);
 
         // Get the reference to the queue
         FrontOfficeHelpers.Queue storage queue = _withdrawalsQueues[tokenAddress];
@@ -530,10 +533,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
             request = requestRef;
 
             // Skip if request is not pending
-            if (!request.isPending()) {
-                queue.pop();
-                continue;
-            }
+            if (!request.isPending()) { queue.pop(); continue; }
 
             // Fail the request if amount too large (perhaps on newly set parameter)
             if (request.amountIn > working.maxSingleWithdrawalFundTokenAmount) {

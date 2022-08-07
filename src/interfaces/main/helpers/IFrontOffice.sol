@@ -28,6 +28,11 @@ import "../../../lib/FrontOfficeHelpers.sol";
  * @notice Interface for the main fund's front office department.
  */
 interface IFrontOffice {
+    /****************************************************/
+    /** Function to get the parameters contract address */
+    /****************************************************/
+    function getParametersAddress() external view returns (address);
+
     /******************************************/
     /** Functions to facilitate user requests */
     /******************************************/

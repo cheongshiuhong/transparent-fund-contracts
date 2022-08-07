@@ -56,16 +56,38 @@ contract HumanResources is CAOHelper, IHumanResources {
     /*********************************/
     /** Functions to read the states */
     /*********************************/
+    /**
+     * Gets the number of employees.
+     *
+     * @dev We refrain from returning the array directly since
+     *      the number of employees might become large.
+     *
+     * @return - The number of employees.
+     */
     function getEmployeeCount() external view override returns (uint256) {
         return _employees.length();
     }
 
+    /**
+     * Gets an employee by the index.
+     *
+     * @param employeeIndex - The index of the employee to lookup.
+     * @return - The employee's address.
+     * @return - The employee's details.
+     */
     function getEmployeeByIndex(
         uint256 employeeIndex
-    ) external view override returns (EmployeeDetails memory) {
-        return _employeesDetails[_employees.at(employeeIndex)];
+    ) external view override returns (address, EmployeeDetails memory) {
+        address employeeAddress = _employees.at(employeeIndex);
+        return (employeeAddress,  _employeesDetails[employeeAddress]);
     }
 
+    /**
+     * Gets an employee by the address.
+     *
+     * @param - The address of the employee to lookup.
+     * @return - The employee's details
+     */
     function getEmployeeByAddress(
         address employeeAddress
     ) external view override returns (EmployeeDetails memory) {
@@ -75,8 +97,10 @@ contract HumanResources is CAOHelper, IHumanResources {
     /**
      * Function to get the accrued remuneration at the current block.
      *
+     * @dev This is for the CAO's convenience.
+     *
      * @param employeeAddress - The address of the employee to get for.
-     * @return 
+     * @return - The remuneration value as a Decimals.Number struct.
      */
     function getEmployeeCurrentRemuneration(
         address employeeAddress
@@ -89,6 +113,31 @@ contract HumanResources is CAOHelper, IHumanResources {
             decimals: REMUNERATION_DECIMALS
         });
     }
+
+    /**
+     * Function to get the unredeemed ex-employees with outstanding balances.
+     *
+     * @return - The array of the unredeemed ex-employees' details.
+     */
+    function getUnredeemedExEmployees()
+        external
+        view
+        override
+        returns (address[] memory, EmployeeDetails[] memory)
+    {
+        // Pull the addresses into memory
+        address[] memory unredeemedExEmployees = _unredeemedExEmployees.values();
+
+        // Iterate and populate the output
+        EmployeeDetails[] memory output;
+        output = new EmployeeDetails[](unredeemedExEmployees.length);
+        for (uint i = 0; i < unredeemedExEmployees.length; i++) {
+            output[i] = _employeesDetails[unredeemedExEmployees[i]];
+        }
+        
+        return (unredeemedExEmployees, output);
+    }
+
 
     /***********************************/
     /** Functions to modify the states */
@@ -209,8 +258,8 @@ contract HumanResources is CAOHelper, IHumanResources {
     function clearEmployeeRemuneration(
         address employeeAddress
     ) external override {
-        // Only callable by the CAO upon claiming or through governance
-        getCAO().requireCAOGovernance(_msgSender());
+        // Only callable by the CAO upon claiming
+        getCAO().requireCAO(_msgSender());
 
         // Update the accrued amount and the accrued block
         _employeesDetails[employeeAddress] = EmployeeDetails({

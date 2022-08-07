@@ -10,7 +10,7 @@ import { ethers } from "hardhat";
 import helpers from "../helpers";
 
 /** Executes through creating proposal and voting then executing */
-const executeThroughGovernanceProcess = async (
+const executeThroughOpsGovernanceProcess = async (
     opsGovernor: Contract,
     managers: SignerWithAddress[],
     callData: string
@@ -58,11 +58,11 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     await opsGovernor.deployed();
 
     // Set the reference to the ops governor contract
-    await (await fund.setOpsGovernor(opsGovernor.address)).wait();
+    await (await fund.setBaseFundHelpers(opsGovernor.address)).wait();
 
     // Register the tokens
     const tokens = [...state.tokens.map((each) => each.token.address), state.protocols.pancakeswap.cakeToken.address];
-    await executeThroughGovernanceProcess(
+    await executeThroughOpsGovernanceProcess(
         opsGovernor,
         managers,
         opsGovernor.interface.encodeFunctionData("registerTokens", [tokens])
@@ -80,7 +80,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
         state.protocols.venus.comptrollerG5.address,
         ...state.protocols.venus.lendingPools.map((details) => details.pool.address),
     ];
-    await executeThroughGovernanceProcess(
+    await executeThroughOpsGovernanceProcess(
         opsGovernor,
         managers,
         opsGovernor.interface.encodeFunctionData("registerProtocols", [protocols])
@@ -95,7 +95,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     await pancakeswapLpFarmingUtil.deployed();
 
     const utils = [pancakeswapLpFarmingUtil.address];
-    await executeThroughGovernanceProcess(
+    await executeThroughOpsGovernanceProcess(
         opsGovernor,
         managers,
         opsGovernor.interface.encodeFunctionData("registerUtils", [utils])

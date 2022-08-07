@@ -518,89 +518,215 @@ const interactDirectDepositIntoIncentive = async (
 ): Promise<void> => {
     console.log(" --- bsc > interact > suite1 > directDepositIntoIncentive > start --- ");
 
-    // Register referral
-    const registerReferralIncentiveTxn = await (
-        await fund.incentives.referral.connect(user).register(fund.roles.holders[0].address)
-    ).wait();
+    let userTokensDeposited: BigNumber;
+    let userFundTokensInIncentive: BigNumber;
 
-    // Track states
-    const userTokenBalanceBeforeRequest: BigNumber = await token.token.balanceOf(user.address);
-    const foTokenBalanceBeforeRequest: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
-    const fundTokenPriceStart: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
-    const accStateStart: AccountingState = await fund.accounting.getState();
+    // deposit
+    {
+        console.log(" --- bsc > interact > suite1 > directDepositIntoIncentive > deposit > start --- ");
+        // Register referral
+        const registerReferralIncentiveTxn = await (
+            await fund.incentives.referral.connect(user).register(fund.roles.holders[0].address)
+        ).wait();
 
-    // Approve front office to spend tokens to deposit
-    const approveRequestDepositTxn = await (
-        await token.token.connect(user).approve(fund.frontOffice.address, ethers.utils.parseEther("1"))
-    ).wait();
+        // Track states
+        const userTokenBalanceBeforeRequest: BigNumber = await token.token.balanceOf(user.address);
+        const foTokenBalanceBeforeRequest: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
+        const fundTokenPriceStart: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
+        const accStateStart: AccountingState = await fund.accounting.getState();
 
-    // Request deposit
-    const requestDepositTxn = await (
-        await fund.frontOffice.connect(user).requestDeposit(
-            token.token.address,
-            ethers.utils.parseEther("1"), // amountIn
-            ethers.utils.parseEther("0"), // minAmountOut
-            1000, // blockDeadline
-            fund.incentives.referral.address // incentiveAddress
-        )
-    ).wait();
+        // Approve front office to spend tokens to deposit
+        const approveRequestDepositTxn = await (
+            await token.token.connect(user).approve(fund.frontOffice.address, ethers.utils.parseEther("1"))
+        ).wait();
 
-    // Track states
-    const userTokenBalanceAfterRequest: BigNumber = await token.token.balanceOf(user.address);
-    const foTokenBalanceAfterRequest: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
-    const userFundTokenBalanceBeforeProcess: BigNumber = await fund.fundToken.balanceOf(user.address);
-    const userFundTokensInIncentiveBeforeProcess: BigNumber = await fund.incentives.referral.getBalance(user.address);
-    const fundTokenSupplyBeforeProcess: BigNumber = await fund.fundToken.totalSupply();
+        // Request deposit
+        const requestDepositTxn = await (
+            await fund.frontOffice.connect(user).requestDeposit(
+                token.token.address,
+                ethers.utils.parseEther("1"), // amountIn
+                ethers.utils.parseEther("0"), // minAmountOut
+                1000, // blockDeadline
+                fund.incentives.referral.address // incentiveAddress
+            )
+        ).wait();
 
-    // Process deposit
-    const processDepositsTxn = await (
-        await fund.frontOffice.connect(fund.roles.taskRunner).processDeposits(token.token.address, 10)
-    ).wait();
+        // Track states
+        const userTokenBalanceAfterRequest: BigNumber = await token.token.balanceOf(user.address);
+        const foTokenBalanceAfterRequest: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
+        const userFundTokenBalanceBeforeProcess: BigNumber = await fund.fundToken.balanceOf(user.address);
+        const userFundTokensInIncentiveBeforeProcess: BigNumber = await fund.incentives.referral.getBalance(
+            user.address
+        );
+        const fundTokenSupplyBeforeProcess: BigNumber = await fund.fundToken.totalSupply();
 
-    // Track states
-    const userFundTokenBalanceAfterProcess: BigNumber = await fund.fundToken.balanceOf(user.address);
-    const userFundTokensInIncentiveAfterProcess: BigNumber = await fund.incentives.referral.getBalance(user.address);
-    const fundTokenSupplyAfterProcess: BigNumber = await fund.fundToken.totalSupply();
-    const fundTokenPriceEnd: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
-    const accStateEnd: AccountingState = await fund.accounting.getState();
+        // Process deposit
+        const processDepositsTxn = await (
+            await fund.frontOffice.connect(fund.roles.taskRunner).processDeposits(token.token.address, 10)
+        ).wait();
 
-    // Compute states
-    const userTokensDeposited = userTokenBalanceBeforeRequest.sub(userTokenBalanceAfterRequest);
-    const foTokensDeposited = foTokenBalanceAfterRequest.sub(foTokenBalanceBeforeRequest);
-    const userFundTokensReceived = userFundTokenBalanceAfterProcess.sub(userFundTokenBalanceBeforeProcess);
-    const userFundTokensInIncentive = userFundTokensInIncentiveAfterProcess.sub(userFundTokensInIncentiveBeforeProcess);
-    const fundTokensMinted = fundTokenSupplyAfterProcess.sub(fundTokenSupplyBeforeProcess);
-    const accAumIncrease = accStateEnd.aumValue.sub(accStateStart.aumValue);
-    const accBeginningSupplyIncrease = accStateEnd.periodBeginningSupply.sub(accStateStart.periodBeginningSupply);
-    const accTheoreticalSupplyIncrease = accStateEnd.theoreticalSupply.sub(accStateStart.theoreticalSupply);
+        // Track states
+        const userFundTokenBalanceAfterProcess: BigNumber = await fund.fundToken.balanceOf(user.address);
+        const userFundTokensInIncentiveAfterProcess: BigNumber = await fund.incentives.referral.getBalance(
+            user.address
+        );
+        const fundTokenSupplyAfterProcess: BigNumber = await fund.fundToken.totalSupply();
+        const fundTokenPriceEnd: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
+        const accStateEnd: AccountingState = await fund.accounting.getState();
 
-    // Log states
-    if (verbose) {
-        console.log(`User Tokens Deposited: ${userTokensDeposited}`);
-        console.log(`Front Office Tokens Deposited: ${foTokensDeposited}`);
-        console.log(`User Fund Tokens Received: ${userFundTokensReceived}`);
-        console.log(`User Fund Tokens Received In Incentive Contract: ${userFundTokensInIncentive}`);
-        console.log(`Fund Tokens Minted: ${fundTokensMinted}`);
-        console.log(`Fund Token Prices: ${fundTokenPriceStart} --> ${fundTokenPriceEnd}`);
-        console.log(`Accounting AUM Increase: ${accAumIncrease}`);
-        console.log(`Accounting Beginning Supply Increase ${accBeginningSupplyIncrease}`);
-        console.log(`Accounting Theoretical Supply Increase ${accTheoreticalSupplyIncrease}`);
+        // Compute states
+        userTokensDeposited = userTokenBalanceBeforeRequest.sub(userTokenBalanceAfterRequest);
+        const foTokensDeposited = foTokenBalanceAfterRequest.sub(foTokenBalanceBeforeRequest);
+        const userFundTokensReceived = userFundTokenBalanceAfterProcess.sub(userFundTokenBalanceBeforeProcess);
+        userFundTokensInIncentive = userFundTokensInIncentiveAfterProcess.sub(userFundTokensInIncentiveBeforeProcess);
+        const fundTokensMinted = fundTokenSupplyAfterProcess.sub(fundTokenSupplyBeforeProcess);
+        const accAumIncrease = accStateEnd.aumValue.sub(accStateStart.aumValue);
+        const accBeginningSupplyIncrease = accStateEnd.periodBeginningSupply.sub(accStateStart.periodBeginningSupply);
+        const accTheoreticalSupplyIncrease = accStateEnd.theoreticalSupply.sub(accStateStart.theoreticalSupply);
+
+        // Log states
+        if (verbose) {
+            console.log(`User Tokens Deposited: ${userTokensDeposited}`);
+            console.log(`Front Office Tokens Deposited: ${foTokensDeposited}`);
+            console.log(`User Fund Tokens Received: ${userFundTokensReceived}`);
+            console.log(`User Fund Tokens Received In Incentive Contract: ${userFundTokensInIncentive}`);
+            console.log(`Fund Tokens Minted: ${fundTokensMinted}`);
+            console.log(`Fund Token Prices: ${fundTokenPriceStart} --> ${fundTokenPriceEnd}`);
+            console.log(`Accounting AUM Increase: ${accAumIncrease}`);
+            console.log(`Accounting Beginning Supply Increase ${accBeginningSupplyIncrease}`);
+            console.log(`Accounting Theoretical Supply Increase ${accTheoreticalSupplyIncrease}`);
+        }
+
+        // Assert states
+        helpers.assert(userTokensDeposited.eq(foTokensDeposited), "tokens deposited do not match");
+        helpers.assert(userFundTokensReceived.eq(0), "user received fund tokens unexpectedly");
+        helpers.assert(
+            userFundTokensInIncentive.eq(fundTokensMinted),
+            "fund tokens in incentive and minted do not match"
+        );
+        // 5 wei of allowance for rounding errors in fund token price ($5e-18)
+        helpers.assert(fundTokenPriceEnd.sub(fundTokenPriceStart).abs().lt(5), "fund token price changed unexpectedly");
+        helpers.assert(accBeginningSupplyIncrease.eq(fundTokensMinted), "accounting beginning supply wrong");
+        helpers.assert(accTheoreticalSupplyIncrease.eq(fundTokensMinted), "accounting theoretical supply wrong");
+
+        // Log gas
+        console.log(`Register Referral Incentive Gas Used: ${registerReferralIncentiveTxn.gasUsed}`);
+        console.log(`Approve Request Deposit Gas Used: ${approveRequestDepositTxn.gasUsed}`);
+        console.log(`Request Deposit Gas Used: ${requestDepositTxn.gasUsed}`);
+        console.log(`Process Deposits Gas Used: ${processDepositsTxn.gasUsed}`);
+
+        console.log(" --- bsc > interact > suite1 > directDepositIntoIncentive > deposit > done --- ");
     }
+    // withdrawal
+    {
+        console.log(" --- bsc > interact > suite1 > directDepositIntoIncentive > withdrawal > start --- ");
 
-    // Assert states
-    helpers.assert(userTokensDeposited.eq(foTokensDeposited), "tokens deposited do not match");
-    helpers.assert(userFundTokensReceived.eq(0), "user received fund tokens unexpectedly");
-    helpers.assert(userFundTokensInIncentive.eq(fundTokensMinted), "fund tokens in incentive and minted do not match");
-    // 5 wei of allowance for rounding errors in fund token price ($5e-18)
-    helpers.assert(fundTokenPriceEnd.sub(fundTokenPriceStart).abs().lt(5), "fund token price changed unexpectedly");
-    helpers.assert(accBeginningSupplyIncrease.eq(fundTokensMinted), "accounting beginning supply wrong");
-    helpers.assert(accTheoreticalSupplyIncrease.eq(fundTokensMinted), "accounting theoretical supply wrong");
+        // Track states
+        const userFundTokenBalanceBeforeIncentive: BigNumber = await fund.fundToken.balanceOf(user.address);
+        const userFundTokensInIncentiveBefore: BigNumber = await fund.incentives.referral.getBalance(user.address);
+        const fundTokenPriceStart: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
+        const accStateStart: AccountingState = await fund.accounting.getState();
 
-    // Log gas
-    console.log(`Register Referral Incentive Gas Used: ${registerReferralIncentiveTxn.gasUsed}`);
-    console.log(`Approve Request Deposit Gas Used: ${approveRequestDepositTxn.gasUsed}`);
-    console.log(`Request Deposit Gas Used: ${requestDepositTxn.gasUsed}`);
-    console.log(`Process Deposits Gas Used: ${processDepositsTxn.gasUsed}`);
+        // Withdraw from incentive
+        const withdrawReferralIncentiveTxn = await (
+            await fund.incentives.referral.connect(user).withdraw(userFundTokensInIncentive)
+        ).wait();
+
+        // Track states
+        const userFundTokenBalanceAfterIncentive: BigNumber = await fund.fundToken.balanceOf(user.address);
+        const userFundTokensInIncentiveAfter: BigNumber = await fund.incentives.referral.getBalance(user.address);
+
+        // Approve front office to process withdrawal amount
+        const approveFoWithdrawalTxn = await (
+            await fund.fund
+                .connect(fund.roles.taskRunner)
+                .approveFrontOfficeForWithdrawals([token.token.address], [userTokensDeposited])
+        ).wait();
+
+        // Approve front office to spend fund tokens to withdraw
+        const approveRequestWithdrawalTxn = await (
+            await fund.fundToken.connect(user).approve(fund.frontOffice.address, userFundTokensInIncentive)
+        ).wait();
+
+        // Request withdrawal
+        const requestWithdrawalTxn = await (
+            await fund.frontOffice.connect(user).requestWithdrawal(
+                token.token.address,
+                userFundTokensInIncentive, // amountIn
+                ethers.utils.parseEther("0"), // minAmountOut
+                1000 // blockDeadline
+            )
+        ).wait();
+
+        // Track states
+        const userFundTokenBalanceAfterRequest: BigNumber = await fund.fundToken.balanceOf(user.address);
+        const userTokenBalanceBeforeProcess: BigNumber = await token.token.balanceOf(user.address);
+        const fundTokenBalanceBeforeProcess: BigNumber = await token.token.balanceOf(fund.fund.address);
+        const fundTokenSupplyBeforeProcess: BigNumber = await fund.fundToken.totalSupply();
+
+        // Process withdrawal
+        const processWithdrawalTxn = await (
+            await fund.frontOffice.connect(fund.roles.taskRunner).processWithdrawals(token.token.address, 10)
+        ).wait();
+
+        // Track states
+        const userTokenBalanceAfterProcess: BigNumber = await token.token.balanceOf(user.address);
+        const fundTokenBalanceAfterProcess: BigNumber = await token.token.balanceOf(fund.fund.address);
+        const fundTokenSupplyAfterProcess: BigNumber = await fund.fundToken.totalSupply();
+        const fundTokenPriceEnd: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
+        const accStateEnd: AccountingState = await fund.accounting.getState();
+
+        // Compute states
+        const userFundTokensWithdrawedIncentive = userFundTokensInIncentiveBefore.sub(userFundTokensInIncentiveAfter);
+        const userFundTokensWithdrawedBalance = userFundTokenBalanceAfterIncentive.sub(
+            userFundTokenBalanceBeforeIncentive
+        );
+        const userFundTokensReturned = userFundTokenBalanceAfterIncentive.sub(userFundTokenBalanceAfterRequest);
+        const userTokensReceived = userTokenBalanceAfterProcess.sub(userTokenBalanceBeforeProcess);
+        const fundTokensWithdrawed = fundTokenBalanceBeforeProcess.sub(fundTokenBalanceAfterProcess);
+        const fundTokensBurned = fundTokenSupplyBeforeProcess.sub(fundTokenSupplyAfterProcess);
+        const accAumDecrease = accStateStart.aumValue.sub(accStateEnd.aumValue);
+        const accBeginningSupplyDecrease = accStateStart.periodBeginningSupply.sub(accStateEnd.periodBeginningSupply);
+        const accTheoreticalSupplyDecrease = accStateStart.theoreticalSupply.sub(accStateEnd.theoreticalSupply);
+
+        // Log states
+        if (verbose) {
+            console.log(`User Fund Tokens Withdrawed (Incentive Balance): ${userFundTokensWithdrawedIncentive}`);
+            console.log(`User Fund Tokens Withdrawed (User Balance): ${userFundTokensWithdrawedBalance}`);
+            console.log(`User Fund Tokens Returned: ${userFundTokensReturned}`);
+            console.log(`User Tokens Received: ${userTokensReceived}`);
+            console.log(`Fund's Tokens Withdrawed: ${fundTokensWithdrawed}`);
+            console.log(`Fund Tokens Burned: ${fundTokensBurned}`);
+            console.log(`Fund Token Prices: ${fundTokenPriceStart} --> ${fundTokenPriceEnd}`);
+            console.log(`Accounting AUM Decrease: ${accAumDecrease}`);
+            console.log(`Accounting Beginning Supply Decrease ${accBeginningSupplyDecrease}`);
+            console.log(`Accounting Theoretical Supply Decrease ${accTheoreticalSupplyDecrease}`);
+        }
+
+        // Assert states
+        helpers.assert(
+            userFundTokensWithdrawedIncentive.eq(userFundTokensWithdrawedBalance),
+            "fund tokens withdrawed do not match"
+        );
+        helpers.assert(userFundTokensReturned.eq(fundTokensBurned), "fund tokens returned and burned do not match");
+        helpers.assert(userTokensReceived.eq(fundTokensWithdrawed), "tokens received do not match");
+        // 50 wei of allowance for rounding errors in fund token price ($50e-18)
+        helpers.assert(
+            fundTokenPriceEnd.sub(fundTokenPriceStart).abs().lt(50),
+            "fund token price changed unexpectedly"
+        );
+        helpers.assert(accBeginningSupplyDecrease.eq(fundTokensBurned), "accounting beginning supply wrong");
+        helpers.assert(accTheoreticalSupplyDecrease.eq(fundTokensBurned), "accounting theoretical supply wrong");
+
+        // Log gas
+        console.log(`Withdraw From Incentive Gas Used: ${helpers.formatGas(withdrawReferralIncentiveTxn.gasUsed)}`);
+        console.log(`Approve Front Office Withdrawal Gas Used: ${helpers.formatGas(approveFoWithdrawalTxn.gasUsed)}`);
+        console.log(`Approve Request Withdrawal Gas Used: ${helpers.formatGas(approveRequestWithdrawalTxn.gasUsed)}`);
+        console.log(`Request Withdrawal Gas Used: ${helpers.formatGas(requestWithdrawalTxn.gasUsed)}`);
+        console.log(`Process Withdarawals Gas Used: ${helpers.formatGas(processWithdrawalTxn.gasUsed)}`);
+
+        console.log(" --- bsc > interact > suite1 > directDepositIntoIncentive > withdrawal > done --- ");
+    }
 
     console.log(" --- bsc > interact > suite1 > directDepositIntoIncentive > done --- ");
     console.log();
@@ -812,48 +938,12 @@ const interactDepositInsufficientOutputAndRedeem = async (
     console.log();
 };
 
-/** Repeatedly update aum value and check incentive */
-// const interactRepeatedlyUpdateAumAndCheckIncentive = async (
-//     fund: MainFund,
-//     user: SignerWithAddress,
-//     token: Token,
-//     verbose: boolean
-// ) => {
-//     console.log(" --- bsc > interact > suite1 > repeatedlyUpdateAumAndCheckIncentive > start --- ");
-//     console.log(" --- bsc > interact > suite1 > repeatedlyUpdateAumAndCheckIncentive > done --- ");
-// };
-
-// const interactRecordAumValue = async (fund: Contract) => {
-//     console.log(" --- bsc > interact > suite1 > recordAumValue > start --- ");
-//     console.log(" --- bsc > interact > suite1 > recordAumValue > done --- ");
-// };
-
-// Tests on HR & CAO (Governance perhaps)
-
 /** Interact with the main fund */
 export default async (state: ContractsState, verbose = false): Promise<void> => {
     if (!state.tokens) return;
     if (!state.mainFund) return;
 
     console.log(" --- bsc > interact > suite1 > start --- ");
-
-    // const operatorConnectedFund = state.mainFund.fund.connect(state.mainFund.roles.operators[0]);
-    // const taskRunnerConnectedFund = state.mainFund.fund.connect(state.mainFund.roles.taskRunner);
-    // await interactSwaps(operatorConnectedFund, state.tokens, state.protocols.pancakeswap);
-    // await interactLpFarming(operatorConnectedFund, state.tokens, state.protocols.pancakeswap);
-    // await interactSinglePoolFarming(operatorConnectedFund, state.protocols.pancakeswap);
-
-    // console.log("AUM Value:", await state.mainFund.accounting.getAumValue());
-    // console.log("Total Supply:", await state.mainFund.fundToken.totalSupply());
-    // console.log("Fund Token Price:", await state.mainFund.accounting.getFundTokenPrice());
-    // console.log("State:", await state.mainFund.accounting.getState());
-
-    // Record AUM Value to trigger disbursement of fund tokens
-    await (
-        await state.mainFund.accounting
-            .connect(state.mainFund.roles.taskRunner)
-            .recordAumValue(ethers.utils.parseEther("2"))
-    ).wait();
 
     await interactMultipleDepositsAndWithdrawals(state.mainFund, state.signers, state.tokens[0], verbose);
     await interactDepositIncentiveWithdraw(state.mainFund, state.mainFund.roles.holders[1], state.tokens[1], verbose);
@@ -865,30 +955,6 @@ export default async (state: ContractsState, verbose = false): Promise<void> => 
         state.tokens[1],
         verbose
     );
-
-    // console.log("AUM Value:", await state.mainFund.accounting.getAumValue());
-    // console.log("Total Supply:", await state.mainFund.fundToken.totalSupply());
-    // console.log("Fund Token Price:", await state.mainFund.accounting.getFundTokenPrice());
-    // console.log("State:", await state.mainFund.accounting.getState());
-
-    // console.log(
-    //     "Referral incentive balance referrer:",
-    //     await state.mainFund.incentives.referral.getBalance(state.mainFund.roles.holders[1].address)
-    // );
-    // console.log(
-    //     "Referral incentive balance user:",
-    //     await state.mainFund.incentives.referral.getBalance(state.mainFund.roles.holders[0].address)
-    // );
-    // console.log(
-    //     "Referral incentive balance contract:",
-    //     await state.mainFund.fundToken.balanceOf(state.mainFund.incentives.referral.address)
-    // );
-    // console.log("Regular balance", await state.mainFund.fundToken.balanceOf(state.mainFund.roles.holders[0].address));
-
-    // console.log("CAO balance", await state.mainFund.fundToken.balanceOf(state.mainFund.cao.address));
-
-    // console.log("RI User:", await state.mainFund.incentives.referral.getUser(state.mainFund.roles.holders[0].address));
-    // console.log("Exchange rate:", await state.mainFund.incentives.referral.getExchangeRate());
 
     console.log(" --- bsc > interact > suite1 > done --- ");
 };

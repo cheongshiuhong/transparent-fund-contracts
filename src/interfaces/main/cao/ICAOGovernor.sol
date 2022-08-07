@@ -58,6 +58,7 @@ interface ICAOGovernor {
         uint256 votesFor;
         uint256 votesAgainst;
         Status status;
+        uint256 blockExecuted;
         bytes[] returnDatas;
     }
 
@@ -81,4 +82,5 @@ interface ICAOGovernor {
     function getNumProposals() external view returns(uint256);
     function getActiveProposalsIds() external view returns (uint256[] memory);
     function getProposal(uint256 proposalId) external view returns (Proposal memory);
+    function getIsProposalExecutable(uint256 proposalId) external view returns (bool);
 }

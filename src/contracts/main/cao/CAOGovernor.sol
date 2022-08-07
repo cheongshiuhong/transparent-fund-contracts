@@ -53,14 +53,15 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
     bool private _isExecuting;
 
     /** Governance events */
-    event ProposalCreated(uint256 proposalId, address proposer, string description);
+    event ProposalCreated(uint256 indexed proposalId, address proposer, string description);
     event Vote(
-        uint256 proposalId,
+        uint256 indexed proposalId,
         address voter,
         Direction direction,
         uint256 votingPower,
         string reason
     );
+    event ProposalExecuted(uint256 indexed proposalId);
 
     /** Constructor */
     constructor(
@@ -104,7 +105,7 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
     function requireCAOGovernance(address caller) public view override {
         require(
             caller == address(this) // called by the CAO
-                && _isExecuting, // called through `executeProposal()`
+                && _isExecuting, // updated by `executeProposal()`
             "CAOGovernor: can only be called through governance process"
         );
     }
@@ -157,14 +158,14 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
         requireCAOTokenHolder(_msgSender());
 
         // Require that the delay is less than or equal to the max
-        require(blocksDelay <= MAX_PROPOSAL_DELAY_BLOCKS, "CAO: delay is too long");
+        require(blocksDelay <= MAX_PROPOSAL_DELAY_BLOCKS, "CAOGovernor: delay is too long");
 
         // Require the duration is greater than or equal to the min
-        require(blocksDuration >= MIN_PROPOSAL_DURATION_BLOCKS, "CAO: duration is too short");
+        require(blocksDuration >= MIN_PROPOSAL_DURATION_BLOCKS, "CAOGovernor: duration is too short");
 
         // Require that array lengths are valid
-        require(callAddresses.length == callDatas.length, "CAO: invalid call input lengths");
-        require(callAddresses.length == callValues.length, "CAO: invalid call input lengths");
+        require(callAddresses.length == callDatas.length, "CAOGovernor: invalid call input lengths");
+        require(callAddresses.length == callValues.length, "CAOGovernor: invalid call input lengths");
 
         // Get the proposal ID as the index of the array
         uint256 proposalId = _proposals.length;
@@ -185,6 +186,7 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
                 votesFor: 0,
                 votesAgainst: 0,
                 status: Status.PENDING,
+                blockExecuted: 0,
                 returnDatas: new bytes[](callAddresses.length)
             })
         );
@@ -214,19 +216,25 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
         uint256 votingPower = _token.getPastVotes(_msgSender(), proposal.startBlock);
         require(
             votingPower > 0,
-            "CAO: caller has no voting power at start of proposal, check if delegated"
+            "CAOGovernor: caller has no voting power at start of proposal, check if delegated"
+        );
+
+        // Require that voting has started
+        require(
+            block.number >= proposal.startBlock,
+            "CAOGovernor: voting has not started"
         );
 
         // Require that voting has not ended yet
         require(
             block.number <= proposal.endBlock,
-            "CAO: voting has ended"
+            "CAOGovernor: voting has ended"
         );
 
         // Require that voter has not voted
         require(
             !_voters[proposalId].contains(_msgSender()),
-            "CAO: caller has already voted"
+            "CAOGovernor: caller has already voted"
         );
 
         // Record the vote
@@ -257,20 +265,25 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
         // Require that the proposal is executable (still pending)
         require(
             proposal.status == Status.PENDING,
-            "CAO: proposal is not pending execution"
+            "CAOGovernor: proposal is not pending execution"
         );
 
         // Require either the deadline is up or more than half have voted in favour
+        uint256 minVotes = _token.getPastTotalSupply(proposal.startBlock) / 2;
         require(
             block.number > proposal.endBlock
-            || proposal.votesFor > _token.getPastTotalSupply(proposal.startBlock) / 2,
-            "CAO: voting is still in progress"
+                || proposal.votesFor > minVotes
+                || proposal.votesAgainst > minVotes,
+            "CAOGovernor: voting is still in progress"
         );
 
         // Reject if more than or equal AGAINST votes vs FOR votes
         if (proposal.votesFor <= proposal.votesAgainst) {
             proposal.status = Status.REJECTED;
             _activeProposalsIds.remove(proposalId);
+            proposal.blockExecuted = block.number;
+
+            emit ProposalExecuted(proposalId);
             return Status.REJECTED;
         }
 
@@ -283,17 +296,24 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
         uint256[] memory callValues = proposal.callValues;
 
         for (uint i = 0; i < callAddresses.length; i++) {
+
             // solhint-disable-next-line avoid-low-level-calls
             (bool success, bytes memory returnData) = callAddresses[i].call
                 { value: callValues[i] }(callDatas[i]);
 
-            if (success)
+            // Record the return data and continue
+            if (success) {
                 proposal.returnDatas[i] = returnData;
-            else {
-                _activeProposalsIds.remove(proposalId);
-                proposal.status = Status.APPROVED_BUT_FAILED;
-                return Status.APPROVED_BUT_FAILED;
+                continue;
             }
+
+            // Record the revert message and exit if fail
+            proposal.returnDatas[i] = returnData;
+            _activeProposalsIds.remove(proposalId);
+            proposal.status = Status.APPROVED_BUT_FAILED;
+            proposal.blockExecuted = block.number;
+            emit ProposalExecuted(proposalId);
+            return Status.APPROVED_BUT_FAILED;
         }
 
         // Set executing back to false
@@ -301,6 +321,9 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
 
         _activeProposalsIds.remove(proposalId);
         proposal.status = Status.APPROVED_AND_EXECUTED;
+        proposal.blockExecuted = block.number;
+
+        emit ProposalExecuted(proposalId);
         return Status.APPROVED_AND_EXECUTED;
     }
 
@@ -331,7 +354,31 @@ abstract contract CAOGovernor is Context, ICAOGovernor {
      * @param proposalId - The id of the proposal to fetch.
      * @return - The proposal struct.
      */
-    function getProposal(uint256 proposalId) external view override returns (Proposal memory) {
+    function getProposal(
+        uint256 proposalId
+    ) external view override returns (Proposal memory) {
         return _proposals[proposalId];
+    }
+
+    /**
+     * Function to check whether a proposal is executable now.
+     *
+     * @param proposalId - The id of the proposal to check.
+     * @return - Whether the proposal is executable now.
+     */
+    function getIsProposalExecutable(
+        uint256 proposalId
+    ) external override view returns (bool) {
+        Proposal memory proposal = _proposals[proposalId];
+
+        // Require that the proposal is executable (still pending)
+        // Require either the deadline is up or more than half have voted in favour
+        uint256 minVotes = _token.getPastTotalSupply(proposal.startBlock) / 2;
+        return proposal.status == Status.PENDING
+            && (
+                block.number > proposal.endBlock
+                || proposal.votesFor > minVotes
+                || proposal.votesAgainst > minVotes
+            );
     }
 }

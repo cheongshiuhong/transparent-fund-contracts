@@ -31,15 +31,16 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     // Use underscore-casing for python side's usage
     const output = {
         tokens: Object.entries(tokens).reduce(
-            (current, [symbol, [address]]) => ({
+            (current, [symbol, [address, oracle]]) => ({
                 ...current,
-                [symbol]: { address, decimals: 18 },
+                [symbol]: { address, decimals: 18, oracle },
             }),
             {}
         ),
         protocols: {
             pancakeswap: {
                 cake_token: state.protocols?.pancakeswap?.cakeToken.address,
+                cake_token_oracle: state.protocols?.pancakeswap?.cakeTokenOracle.address,
                 master_chef_v2: state.protocols?.pancakeswap?.masterChefV2.address,
                 cake_pool: state.protocols?.pancakeswap?.cakePool.address,
                 smart_chefs: state.protocols?.pancakeswap?.pools.reduce(
@@ -64,6 +65,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
             venus: {
                 unitroller: state.protocols?.venus?.comptrollerG5.address,
                 xvs: state.protocols?.venus?.xvs.address,
+                xvs_oracle: state.protocols?.venus?.xvsOracle.address,
                 lens: state.protocols?.venus?.lens.address,
                 pools: state.protocols?.venus?.lendingPools.reduce(
                     (current, each) => ({
@@ -80,15 +82,18 @@ export default async (state: ContractsState): Promise<ContractsState> => {
             utils: {
                 pancakeswap_lp_farming_util: state.baseFund.utils.pancakeswapLpFarmingUtil.address,
             },
+            roles: {
+                operators: state.baseFund.roles.operators.map((operator) => operator.address),
+                managers: state.baseFund.roles.managers.map((manager) => manager.address),
+            },
         },
         multicall: state.multicall?.address,
     };
 
-    // Write json file
-    fs.writeFileSync("bsc-config-local.json", JSON.stringify(output, null, 2));
+    const dir = "outputs/local-base/";
 
-    // Write yaml file
-    fs.writeFileSync("bsc-config-local.yaml", yaml.dump(output));
+    !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(dir + "addresses.yaml", yaml.dump(output));
 
     console.log("--- bsc > output > done ---");
 

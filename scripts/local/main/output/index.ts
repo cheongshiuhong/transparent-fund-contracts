@@ -14,18 +14,19 @@ export default async (state: ContractsState): Promise<ContractsState> => {
 
     const output = {
         fund: {
-            fund: state.mainFund.fund.address,
             roles: {
                 holders: state.mainFund.roles.holders.map((each) => each.address),
                 managers: state.mainFund.roles.managers.map((each) => each.address),
                 operators: state.mainFund.roles.operators.map((each) => each.address),
                 taskRunner: state.mainFund.roles.taskRunner.address,
             },
-            opsGovernor: state.mainFund.opsGovernor.address,
-            fundToken: state.mainFund.fundToken.address,
             cao: state.mainFund.cao.address,
             caoToken: state.mainFund.caoToken.address,
+            caoParameters: state.mainFund.caoParameters.address,
             humanResources: state.mainFund.humanResources.address,
+            fund: state.mainFund.fund.address,
+            opsGovernor: state.mainFund.opsGovernor.address,
+            fundToken: state.mainFund.fundToken.address,
             accounting: state.mainFund.accounting.address,
             frontOffice: state.mainFund.frontOffice.address,
             incentivesManager: state.mainFund.incentivesManager.address,
@@ -36,11 +37,10 @@ export default async (state: ContractsState): Promise<ContractsState> => {
         },
     };
 
-    // Write json file
-    fs.writeFileSync("bsc-config-local.json", JSON.stringify(output, null, 2));
+    const dir = "outputs/local-main/";
 
-    // Write yaml file
-    fs.writeFileSync("bsc-config-local.yaml", yaml.dump(output));
+    !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(dir + "addresses.yaml", yaml.dump(output));
 
     console.log("--- bsc > output > done ---");
 

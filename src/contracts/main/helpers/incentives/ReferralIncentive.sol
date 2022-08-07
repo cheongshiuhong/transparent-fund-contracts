@@ -62,6 +62,13 @@ contract ReferralIncentive is ReentrancyGuard, Incentive {
     /** Constructor */
     constructor(address fundAddress) Incentive(fundAddress) {}
 
+    /*******************************/
+    /** Functions to read metadata */
+    /*******************************/
+    function getName() external pure override returns (string memory) {
+        return "Referral Incentive";
+    }
+
     /************************************/
     /** Functions to serve as modifiers */
     /************************************/

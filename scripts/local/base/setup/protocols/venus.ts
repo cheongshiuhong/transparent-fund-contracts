@@ -32,6 +32,11 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     const xvs = await XVS.deploy(state.signers[0].address);
     await xvs.deployed();
 
+    // Deploy the XVS token oracle
+    const ChainlinkOracle = await ethers.getContractFactory("MockedChainlinkOracle");
+    const xvsOracle = await ChainlinkOracle.deploy("XVS Oracle");
+    await xvsOracle.deployed();
+
     // Deploy Comptroller
     // Comptroller is shared to assess user-risk across all pools
     const ComptrollerG5 = await ethers.getContractFactory("ComptrollerG5");
@@ -114,7 +119,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
         ...state,
         protocols: {
             ...(state.protocols || {}),
-            venus: { comptrollerG5, xvs, lens, lendingPools },
+            venus: { comptrollerG5, xvs, xvsOracle, lens, lendingPools },
         },
     };
 };

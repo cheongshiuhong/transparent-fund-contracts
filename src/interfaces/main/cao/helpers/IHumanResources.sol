@@ -43,14 +43,17 @@ interface IHumanResources {
     function getEmployeeCount() external view returns (uint256);
     function getEmployeeByIndex(
         uint256 employeeIndex
-    ) external view returns (EmployeeDetails memory);
+    ) external view returns (address, EmployeeDetails memory);
     function getEmployeeByAddress(
         address employeeAddress
     ) external view returns (EmployeeDetails memory);
     function getEmployeeCurrentRemuneration(
         address employeeAddress
     ) external view returns (Decimals.Number memory);
-
+    function getUnredeemedExEmployees() external view returns (
+        address[] memory,
+        EmployeeDetails[] memory
+    );
 
     /***********************************/
     /** Functions to modify the states */

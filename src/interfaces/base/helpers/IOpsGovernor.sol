@@ -41,9 +41,21 @@ interface IOpsGovernor {
     /*********************************/
     function getManagers() external view returns (address[] memory);
     function getOperators() external view returns (address[] memory);
-    function getRegisteredTokens() external view returns (address[] memory);
-    function getRegisteredProtocols() external view returns (address[] memory);
-    function getRegisteredUtils() external view returns (address[] memory);
+    function getNumRegisteredTokens() external view returns (uint256);
+    function getNumRegisteredProtocols() external view returns (uint256);
+    function getNumRegisteredUtils() external view returns (uint256);
+    function getRegisteredTokens(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (address[] memory);
+    function getRegisteredProtocols(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (address[] memory);
+    function getRegisteredUtils(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (address[] memory);
 
     /***********************************/
     /** Functions to modify the states */
@@ -96,4 +108,5 @@ interface IOpsGovernor {
     function getNumProposals() external view returns (uint256);
     function getActiveProposalsIds() external view returns (uint256[] memory);
     function getProposal(uint256 proposalId) external view returns (Proposal memory);
+    function getIsProposalExecutable(uint256 proposalId) external view returns (bool);
 }

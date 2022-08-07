@@ -21,11 +21,11 @@ const executeThroughCAOGovernanceProcess = async (
 
     // All to vote in approval
     await Promise.all(
-        holders.slice(1).map(async (holder) => await (await cao.connect(holder).vote(proposalId, 0, "vote")).wait())
+        holders.map(async (holder) => await (await cao.connect(holder).vote(proposalId, 0, "vote")).wait())
     );
 
     // Execute the proposal
-    await (await cao.connect(holders[0]).executeProposal(proposalId)).wait();
+    await (await cao.connect(holders[0]).executeProposal(proposalId, { gasLimit: 5_000_000 })).wait();
 };
 
 /** Setup the base fund and its supporting contracts */
@@ -51,8 +51,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
         "Material",
         "MTRL",
         holders.map((holder) => holder.address),
-        Array(holders.length).fill(ethers.utils.parseEther("10000")),
-        taskRunner.address
+        Array(holders.length).fill(ethers.utils.parseEther("10000"))
     );
     const caoDeployTxn = await (await cao.deployed()).deployTransaction.wait();
 
@@ -60,6 +59,12 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     const CAOToken = await ethers.getContractFactory("CAOToken");
     const caoToken = CAOToken.attach(await cao.getCAOTokenAddress());
     await Promise.all(holders.map(async (holder) => caoToken.connect(holder).delegate(holder.address)));
+
+    // Deploy the CAO Parameters
+    const CAOParameters = await ethers.getContractFactory("CAOParameters");
+    const caoParameters = await CAOParameters.deploy(cao.address, taskRunner.address);
+    const caoParametersDeployTxn = await (await caoParameters.deployed()).deployTransaction.wait();
+    await (await cao.setCAOParameters(caoParameters.address)).wait();
 
     // Deploy the CAO Human Resources
     const HumanResources = await ethers.getContractFactory("HumanResources");
@@ -137,6 +142,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
 
     // Log the deployment gas details
     console.log(`CAO Deployment Gas Used: ${caoDeployTxn.gasUsed}`);
+    console.log(`CAOParameters Deployment Gas Used: ${caoParametersDeployTxn.gasUsed}`);
     console.log(`HumanResources Deployment Gas Used: ${humanResourcesDeployTxn.gasUsed}`);
     console.log(`Fund Deployment Gas Used: ${fundDeployTxn.gasUsed}`);
     console.log(`OpsGovernor Deployment Gas Used: ${opsGovernorDeployTxn.gasUsed}`);
@@ -148,6 +154,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     console.log(`ReferralIncentive Deployment Gas Used: ${referralIncentiveDeployTxn.gasUsed}`);
     console.log(
         `Total Gas Used: ${caoDeployTxn.gasUsed
+            .add(caoParametersDeployTxn.gasUsed)
             .add(humanResourcesDeployTxn.gasUsed)
             .add(fundDeployTxn.gasUsed)
             .add(opsGovernorDeployTxn.gasUsed)
@@ -170,7 +177,12 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     await executeThroughCAOGovernanceProcess(
         cao,
         holders,
-        [...Array(holders.length).fill(humanResources.address), cao.address, cao.address, incentivesManager.address],
+        [
+            ...Array(holders.length).fill(humanResources.address),
+            caoParameters.address,
+            caoParameters.address,
+            incentivesManager.address,
+        ],
         [
             // Employees
             ...holders.map((holder) =>
@@ -179,12 +191,12 @@ export default async (state: ContractsState): Promise<ContractsState> => {
                     ethers.utils.parseEther("0.001"),
                 ])
             ),
-            // CAO States
-            cao.interface.encodeFunctionData("setReserveTokensOracles", [
+            // CAO Parameters
+            caoParameters.interface.encodeFunctionData("setReserveTokensOracles", [
                 state.tokens.map((token) => token.token.address),
                 state.tokens.map((token) => token.chainlinkOracle.address),
             ]),
-            cao.interface.encodeFunctionData("addFundTokens", [[fundToken.address]]),
+            caoParameters.interface.encodeFunctionData("addFundTokens", [[fundToken.address]]),
             // Incentives
             incentivesManager.interface.encodeFunctionData("addIncentive", [referralIncentive.address]),
         ],
@@ -202,6 +214,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
             fundToken,
             cao,
             caoToken,
+            caoParameters,
             humanResources,
             accounting,
             frontOffice,

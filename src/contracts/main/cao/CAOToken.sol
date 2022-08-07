@@ -58,7 +58,10 @@ contract CAOToken is Ownable, ERC20Votes {
         address to,
         uint256 amount
     ) public onlyOwner override returns (bool) {
-        return super.transferFrom(from, to, amount);
+        // No need for allowances
+        _transfer(from, to, amount);
+        return true;
+        // return super.transferFrom(from, to, amount);
     }
 
     // Only the CAO can mint

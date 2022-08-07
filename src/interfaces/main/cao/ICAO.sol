@@ -32,6 +32,7 @@ interface ICAO is ICAOGovernor {
     /***************************************/
     /** Functions to set the CAO's helpers */
     /***************************************/
+    function setCAOParameters(address parametersAddress) external;
     function setCAOHelpers(address humanResourcesAddress) external;
 
     /***************************************/
@@ -42,32 +43,8 @@ interface ICAO is ICAOGovernor {
     /**********************************/
     /** Functions to act as modifiers */
     /**********************************/
+    function requireCAO(address caller) external view;
     function requireCAOTaskRunner(address caller) external view;
-
-    /******************************************/
-    /** Function for managing the task runner */
-    /******************************************/
-    function getTaskRunner() external view returns (address);
-    function setTaskRunner(address newTaskRunnerAddress) external;
-    function unsetTaskRunner() external;
-
-    /**********************************************/
-    /** Functions for managing the reserve tokens */
-    /**********************************************/
-    function getReserveTokens() external view returns (address[] memory);
-    function getReserveTokenOracle(address tokenAddress) external view returns (address);
-    function setReserveTokensOracles(
-        address[] calldata tokensAddresses,
-        address[] calldata oraclesAddresses
-    ) external;
-    function removeReserveTokens(address[] calldata tokensAddresses) external;
-
-    /*******************************************/
-    /** Functions for managing the fund tokens */
-    /*******************************************/
-    function getFundTokens() external view returns (address[] memory);
-    function addFundTokens(address[] calldata fundTokensAddresses) external;
-    function removeFundTokens(address[] calldata fundTokensAddresses) external;
 
     /****************************************/
     /** Functions for employees interaction */

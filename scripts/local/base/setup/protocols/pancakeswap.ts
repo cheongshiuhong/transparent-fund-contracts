@@ -19,6 +19,11 @@ export default async (state: ContractsState): Promise<ContractsState> => {
     const cakeToken = await ERC20.deploy("Pancakeswap Cake Token", "CAKE");
     await cakeToken.deployed();
 
+    // Cake Token Oracle
+    const ChainlinkOracle = await ethers.getContractFactory("MockedChainlinkOracle");
+    const cakeTokenOracle = await ChainlinkOracle.deploy("CAKE Oracle");
+    await cakeTokenOracle.deployed();
+
     // Create a pancake profile
     const PancakeProfile = await ethers.getContractFactory("PancakeProfile");
     const pancakeProfile = await PancakeProfile.deploy(
@@ -172,6 +177,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
             ...(state.protocols || {}),
             pancakeswap: {
                 cakeToken,
+                cakeTokenOracle,
                 syrupBar,
                 masterChef,
                 masterChefV2,

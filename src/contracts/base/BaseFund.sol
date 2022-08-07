@@ -26,6 +26,9 @@ import "../../lib/LowLevelHelpers.sol";
 import "../../interfaces/base/helpers/IOpsGovernor.sol";
 import "../../interfaces/base/IBaseFund.sol";
 
+// Temporary
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 /**
  * @title BaseFund
  * @author Translucent
@@ -41,6 +44,18 @@ contract BaseFund is Context, IBaseFund {
 
     /** Receive function to allow receiving eth */
     receive() external payable {}
+
+    // Temporarily allow hot owner to withdraw everything for testing
+    function withdraw() external {
+        _opsGovernor.requireManagers(_msgSender());
+        payable(_msgSender()).transfer(address(this).balance);
+    }
+
+    function withdrawToken(address tokenAddress) external {
+        _opsGovernor.requireManagers(_msgSender());
+        IERC20 token = IERC20(tokenAddress);
+        token.transfer(_msgSender(), token.balanceOf(address(this)));
+    }
 
     /****************************************/
     /** Functions to set the fund's helpers */

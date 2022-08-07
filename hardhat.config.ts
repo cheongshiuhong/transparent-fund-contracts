@@ -50,6 +50,7 @@ const config: HardhatUserConfig = {
         localhost: {
             // Needed to deploy the protocols
             allowUnlimitedContractSize: true,
+            // accounts: [process.env.DEPLOYER_PRIVATE_KEY || "", process.env.TESTER_PRIVATE_KEY || ""],
         },
         // "bsc-testnet": {
         //     url: "https://data-seed-prebsc-1-s1.binance.org:8545",
@@ -60,13 +61,18 @@ const config: HardhatUserConfig = {
         //         process.env.MANAGER_PRIVATE_KEY || "",
         //     ],
         // },
+        "bsc-mainnet-qa": {
+            url: "https://bsc-dataseed.binance.org/",
+            gasPrice: 5 * 10 ** 9,
+            accounts: [process.env.DEPLOYER_PRIVATE_KEY || "", process.env.TESTER_PRIVATE_KEY || ""],
+        },
         // "bsc-mainnet": {
         //     url: "https://bsc-dataseed.binance.org/",
         //     gasPrice: 5 * 10 ** 9,
         //     accounts: [
         //         process.env.DEPLOYER_PRIVATE_KEY || "",
-        //         process.env.HOT_OWNER_PRIVATE_KEY || "",
-        //         process.env.MANAGER_PRIVATE_KEY || "",
+        //         process.env.TESTER_1_PRIVATE_KEY || "",
+        //         process.env.TESTER_2_PRIVATE_KEY || "",
         //     ],
         // },
     },

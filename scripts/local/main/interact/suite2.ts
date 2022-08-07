@@ -314,6 +314,7 @@ const interactBulkWithIncentive = async (
         const state1 = await getState(fund, verbose);
         helpers.assert(state1.price.sub(state0.price).abs().lt(50), "fund token price changed unexpectedly");
         const userIncentiveBalance1 = await fund.incentives.referral.getBalance(user.address);
+        const referrerIncentiveBalance1 = await fund.incentives.referral.getBalance(referrer.address);
 
         // Op 2 - Record a profit
         console.log("Op 2");
@@ -321,7 +322,12 @@ const interactBulkWithIncentive = async (
         const state2 = await getState(fund, verbose);
         helpers.assert(state2.caoBalance.gt(state1.caoBalance), "cao did not get rewarded for profit");
         const userIncentiveBalance2 = await fund.incentives.referral.getBalance(user.address);
+        const referrerIncentiveBalance2 = await fund.incentives.referral.getBalance(referrer.address);
         helpers.assert(userIncentiveBalance2.gt(userIncentiveBalance1), "user did not get incentive on profit");
+        helpers.assert(
+            referrerIncentiveBalance2.gt(referrerIncentiveBalance1),
+            "referrer did not get incentive on profit"
+        );
         // Evaluation period reset
     }
 

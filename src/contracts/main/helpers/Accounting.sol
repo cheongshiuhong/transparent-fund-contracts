@@ -44,7 +44,7 @@ contract Accounting is MainFundHelper, IAccounting {
     using Decimals for Decimals.Number;
 
     /** Events */
-    event EvaluationPeriodReset();
+    event EvaluationPeriodReset(uint256 aumValue, uint256 totalSupply);
 
     /** Constants */
     // Recommended Maximum management fee = 50% of profits (0.5 ether)
@@ -284,10 +284,8 @@ contract Accounting is MainFundHelper, IAccounting {
             totalDilutionWeight
         );
 
-        // Adjust the actual supply with the theoretical by minting/burning
-        // NOTE: this is solely to reflect a more updated intrinsic value
-        //       and discourage anticipatory behaviours of holders/speculators.
-        _adjustActualSupply(fundToken, theoreticalSupply);
+        // Adjust the actual supply with the theoretical
+        _adjustActualSupply(fundToken, theoreticalSupply, state);
 
         // Update theoretical supply and exit if period not ended
         if (block.number - state.periodBeginningBlock < _evaluationPeriodBlocks) {
@@ -296,15 +294,17 @@ contract Accounting is MainFundHelper, IAccounting {
         }
 
         // End of evaluation period - reset accounting state and disburse
-        _resetAccountingState(newAumValue, fundToken.totalSupply());
+        uint256 actualSupply = fundToken.totalSupply();
+        _resetAccountingState(newAumValue, actualSupply);
         _disburseFundTokens(
             fundToken,
             incentivesAddresses,
             incentivesDilutionWeights,
             totalDilutionWeight
         );
-        emit EvaluationPeriodReset();
-        return;
+
+        // Emit the reset event
+        emit EvaluationPeriodReset(newAumValue, actualSupply);
     }
 
     /******************************/
@@ -339,33 +339,47 @@ contract Accounting is MainFundHelper, IAccounting {
         ).value;
     }
 
+    /**
+     * Adjusts the actual supply with the theoretical supply
+     * by minting/burning tokens held before disbursement.
+     *
+     * @notice This is to reflect a more updated intrinsic value
+     *         and discourage anticipatory behaviours of holders/speculators.
+     *
+     * @param fundToken - The interface reference to the fund token.
+     * @param targetSupply - The targeted supply to be adjusted to.
+     * @param state - The state that was pulled into memory.
+     */
     function _adjustActualSupply(
         IMainFundToken fundToken,
-        uint256 targetSupply
+        uint256 targetSupply,
+        AccountingState memory state
     ) internal {
-        // Mint/Burn tokens (MOVE to own INTERNAL FUNCTION)
+        // Mint/Burn tokens
         uint256 actualSupply = fundToken.totalSupply();
+
+        // Mint if more is needed
         if (targetSupply > actualSupply) {
-            // Mint if more is needed
             fundToken.mint(address(this), targetSupply - actualSupply);
-        } else {
-            // Burn the difference with supply lower-bounded by beginning supply
-            fundToken.burn(
-                address(this),
-                actualSupply - (
-                    targetSupply > _state.periodBeginningSupply
-                    ? targetSupply
-                    : _state.periodBeginningSupply
-                )
-            );
+            return;
         }
+
+        // Burn the difference with supply lower-bounded by beginning supply
+        fundToken.burn(
+            address(this),
+            actualSupply - (
+                targetSupply > state.periodBeginningSupply
+                ? targetSupply
+                : state.periodBeginningSupply
+            )
+        );
     }
 
     /**
-     * Resets the accounting state to markt he start of a new evaluation period.
+     * Resets the accounting state to mark the start of a new evaluation period.
      *
      * @param newAumValue - The aum value to track for the period.
-     @ @param newActualSupply - The actual supply to track for the period.
+     * @param newActualSupply - The actual supply to track for the period.
      */
     function _resetAccountingState(
         uint256 newAumValue,
@@ -414,6 +428,7 @@ contract Accounting is MainFundHelper, IAccounting {
                 fundToken.safeTransfer(incentivesAddresses[i], amount);
             }
         }
+
         // Disburse the rest to the CAO
         fundToken.safeTransfer(
             address(getFund().getCAO()), fundToken.balanceOf(address(this))
