@@ -12,7 +12,22 @@ export default async (state: ContractsState): Promise<ContractsState> => {
 
     console.log("--- bsc > output > start ---");
 
+    const tokens: Record<string, string[]> = state.tokens.reduce(
+        (current, each, index) => ({
+            ...current,
+            [index === 0 ? "WETH" : `TKN${index}`]: [each.token.address, each.chainlinkOracle.address],
+        }),
+        {}
+    );
+
     const output = {
+        tokens: Object.entries(tokens).reduce(
+            (current, [symbol, [address, oracle]]) => ({
+                ...current,
+                [symbol]: { address, decimals: 18, oracle },
+            }),
+            {}
+        ),
         fund: {
             roles: {
                 holders: state.mainFund.roles.holders.map((each) => each.address),
@@ -29,6 +44,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
             fundToken: state.mainFund.fundToken.address,
             accounting: state.mainFund.accounting.address,
             frontOffice: state.mainFund.frontOffice.address,
+            frontOfficeParameters: state.mainFund.frontOfficeParameters.address,
             incentivesManager: state.mainFund.incentivesManager.address,
             incentives: Object.entries(state.mainFund.incentives).reduce(
                 (current, [key, value]) => ({ ...current, [key]: value.address }),

@@ -52,6 +52,7 @@ library FrontOfficeHelpers {
         RequestStatus status;
         uint256 blockUpdated;
         uint256 computedAmountOut;
+        bool isReclaimed;
     }
 
     /**
@@ -266,7 +267,8 @@ library FrontOfficeHelpers {
             incentive: incentive,
             status: RequestStatus.PENDING,
             blockUpdated: 0,
-            computedAmountOut: 0
+            computedAmountOut: 0,
+            isReclaimed: false
         });
 
         // Increment the writeIdx

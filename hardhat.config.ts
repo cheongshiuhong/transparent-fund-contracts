@@ -5,6 +5,7 @@ import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
+import "hardhat-contract-sizer";
 import "solidity-coverage";
 
 dotenv.config();
@@ -36,7 +37,7 @@ const config: HardhatUserConfig = {
         settings: {
             optimizer: {
                 enabled: true,
-                runs: 1000,
+                runs: 200,
             },
         },
     },
@@ -61,20 +62,16 @@ const config: HardhatUserConfig = {
         //         process.env.MANAGER_PRIVATE_KEY || "",
         //     ],
         // },
-        "bsc-mainnet-qa": {
-            url: "https://bsc-dataseed.binance.org/",
-            gasPrice: 5 * 10 ** 9,
-            accounts: [process.env.DEPLOYER_PRIVATE_KEY || "", process.env.TESTER_PRIVATE_KEY || ""],
-        },
-        // "bsc-mainnet": {
+        // "bsc-mainnet-qa": {
         //     url: "https://bsc-dataseed.binance.org/",
         //     gasPrice: 5 * 10 ** 9,
-        //     accounts: [
-        //         process.env.DEPLOYER_PRIVATE_KEY || "",
-        //         process.env.TESTER_1_PRIVATE_KEY || "",
-        //         process.env.TESTER_2_PRIVATE_KEY || "",
-        //     ],
+        //     accounts: [process.env.DEPLOYER_PRIVATE_KEY || "", process.env.TESTER_PRIVATE_KEY || ""],
         // },
+        "bsc-mainnet": {
+            url: "https://bsc-dataseed.binance.org/",
+            gasPrice: 5 * 10 ** 9,
+            accounts: [process.env.DEPLOYER_PRIVATE_KEY || ""],
+        },
     },
     paths: {
         sources: "./src",
@@ -85,3 +82,9 @@ const config: HardhatUserConfig = {
 };
 
 export default config;
+
+module.exports = {
+    mocha: {
+        timeout: 1_000_000, // ms
+    },
+};

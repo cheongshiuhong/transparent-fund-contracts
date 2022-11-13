@@ -44,6 +44,7 @@ contract ReferralIncentive is ReentrancyGuard, Incentive {
 
     /** Constants */
     uint256 public constant PROFIT_SHARING_PERCENT = 0.1 ether; // 10%
+    uint256 public constant MAX_DILUTION_WEIGHT = 0.3 ether; // 30%
     uint256 public constant REFERRER_SHARE_PERCENT = 0.5 ether; // 50%
     uint256 public constant MAX_REFEREES_PER_REFERRER = 10;
 
@@ -129,7 +130,7 @@ contract ReferralIncentive is ReentrancyGuard, Incentive {
 
        // Cannot register if already registered (be it as referrer or referee)
         require(
-            user.referrer == address(0) && user.referees.length == 0,
+            user.referrer == address(0),
             "ReferralIncentive: user is already registered"
         );
         // Cannot set referrer to 0x0 address or self
@@ -146,6 +147,9 @@ contract ReferralIncentive is ReentrancyGuard, Incentive {
 
         user.referrer = referrerAddress;
         _users[referrerAddress].referees.push(_msgSender());
+
+        // Emit the event
+        emit UserQualified(_msgSender());
     }
 
     /**
@@ -360,10 +364,17 @@ contract ReferralIncentive is ReentrancyGuard, Incentive {
         );
 
         // Share of AUM % x profit-sharing % x returns %
-        return balance
+        Decimals.Number memory dilutionWeight = balance
             .div(periodBeginningSupply)
             .mul(Decimals.Number(PROFIT_SHARING_PERCENT, 18))
             .mul(returnsFactor.sub(one));
+
+        // Clip it at the max
+        if (dilutionWeight.gt(Decimals.Number(MAX_DILUTION_WEIGHT, 18))) {
+            dilutionWeight.value = MAX_DILUTION_WEIGHT;
+        }
+
+        return dilutionWeight;
     }
 
     /**

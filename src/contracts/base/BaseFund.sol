@@ -46,16 +46,16 @@ contract BaseFund is Context, IBaseFund {
     receive() external payable {}
 
     // Temporarily allow hot owner to withdraw everything for testing
-    function withdraw() external {
-        _opsGovernor.requireManagers(_msgSender());
-        payable(_msgSender()).transfer(address(this).balance);
-    }
+    // function withdraw() external {
+    //     _opsGovernor.requireManagers(_msgSender());
+    //     payable(_msgSender()).transfer(address(this).balance);
+    // }
 
-    function withdrawToken(address tokenAddress) external {
-        _opsGovernor.requireManagers(_msgSender());
-        IERC20 token = IERC20(tokenAddress);
-        token.transfer(_msgSender(), token.balanceOf(address(this)));
-    }
+    // function withdrawToken(address tokenAddress) external {
+    //     _opsGovernor.requireManagers(_msgSender());
+    //     IERC20 token = IERC20(tokenAddress);
+    //     token.transfer(_msgSender(), token.balanceOf(address(this)));
+    // }
 
     /****************************************/
     /** Functions to set the fund's helpers */

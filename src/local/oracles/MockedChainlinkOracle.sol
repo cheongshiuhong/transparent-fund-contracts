@@ -18,9 +18,9 @@
 
 pragma solidity ^0.8.12;
 
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
 
-contract MockedChainlinkOracle is AggregatorV3Interface {
+contract MockedChainlinkOracle is AggregatorV2V3Interface {
 
     string private _description;
 
@@ -38,6 +38,25 @@ contract MockedChainlinkOracle is AggregatorV3Interface {
 
     function version() external pure returns (uint256) {
         return 1;
+    }
+
+    function latestAnswer() external pure returns (int256) {
+        return 1 ether;
+    }
+    function latestTimestamp() external view returns (uint256) {
+        return block.timestamp;
+    }
+
+    function latestRound() external pure returns (uint256) {
+        return 1;
+    }
+
+    function getAnswer(uint256) external pure returns (int256) {
+        return 1 ether;
+    }
+
+    function getTimestamp(uint256) external view returns (uint256) {
+        return block.timestamp;
     }
 
     // getRoundData and latestRoundData should both raise "No data present"

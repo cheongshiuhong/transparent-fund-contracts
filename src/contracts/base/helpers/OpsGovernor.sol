@@ -40,7 +40,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
     /** Libraries */
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
-    
+
     /** States */
     EnumerableSet.AddressSet private _managers;
     EnumerableSet.AddressSet private _operators;
@@ -250,11 +250,13 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
             Proposal({
                 proposer: _msgSender(),
                 description: description,
-                deadline: block.number + duration,
+                startBlock: block.number,
+                endBlock: block.number + duration,
                 callData: callData,
                 votesFor: 1, // Proposer is by default in favour
                 votesAgainst: 0,
-                status: Status.PENDING
+                status: Status.PENDING,
+                blockExecuted: 0
             })
         );
 
@@ -282,7 +284,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
 
         // Require that voting is still active
         require(
-            _proposals[proposalId].deadline >= block.number,
+            _proposals[proposalId].endBlock >= block.number,
             "OpsGovernor: voting for the proposal has ended"
         );
 
@@ -328,7 +330,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
         uint256 numManagers = _managers.length();
         uint256 minVotes = numManagers / 2 + (numManagers % 2 == 0 ? 0 : 1);
         require(
-            block.number > proposal.deadline
+            block.number > proposal.endBlock
             || proposal.votesFor >= minVotes,
             "OpsGovernor: voting is still in progress"
         );
@@ -407,7 +409,7 @@ contract OpsGovernor is BaseFundHelper, IOpsGovernor {
         uint256 minVotes = numManagers / 2 + (numManagers % 2 == 0 ? 0 : 1);
         return proposal.status == Status.PENDING
             && (
-                block.number > proposal.deadline
+                block.number > proposal.endBlock
                 || proposal.votesFor >= minVotes
                 || proposal.votesAgainst >= minVotes
             );

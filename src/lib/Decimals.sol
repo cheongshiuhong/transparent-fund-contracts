@@ -18,10 +18,6 @@
 
 pragma solidity ^0.8.12;
 
-// External libraries
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
 /**
  * @title Decimals
  * @author Translucent

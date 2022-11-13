@@ -51,9 +51,6 @@ interface IFrontOffice {
     function getUserRequestCount(
         address userAddress
     ) external view returns (uint256);
-    function getUserRequestByAccessor(
-        RequestAccessor memory accessor
-    ) external view returns (FrontOfficeHelpers.Request memory);
     function getUserRequestByIndex(
         address userAddress,
         uint256 index
@@ -84,7 +81,7 @@ interface IFrontOffice {
         uint256 blockDeadline
     ) external;
     function cancelLatestRequest() external;
-    function redeemFromFailedRequests(uint256[] calldata indexes) external;
+    function reclaimFromFailedRequest(uint256 index) external;
 
     /***************************************************************/
     /** Functions to facilitate the processing of requests (tasks) */

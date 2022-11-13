@@ -218,6 +218,7 @@ export default async (state: ContractsState): Promise<ContractsState> => {
             humanResources,
             accounting,
             frontOffice,
+            frontOfficeParameters,
             incentivesManager,
             incentives: { referral: referralIncentive },
         },

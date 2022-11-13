@@ -85,11 +85,13 @@ interface IOpsGovernor {
     struct Proposal {
         address proposer;
         string description;
-        uint256 deadline;
+        uint256 startBlock;
+        uint256 endBlock;
         bytes callData;
         uint256 votesFor;
         uint256 votesAgainst;
         Status status;
+        uint256 blockExecuted;
     }
     /**************************************************/
     /** Functions to facilitate governance and voting */

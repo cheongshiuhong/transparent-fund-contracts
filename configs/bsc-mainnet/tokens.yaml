@@ -25,12 +25,12 @@ USDC:
   pricing:
     id: "chainlink"
     address: "0x51597f405303c4377e36123cbc172b13269ea163"
-# DAI:
-#   address: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3"
-#   decimals: 18
-#   pricing:
-#     id: "chainlink"
-#     address: "0x132d3C0B1D2cEa0BC552588063bdBb210FDeecfA"
+DAI:
+  address: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3"
+  decimals: 18
+  pricing:
+    id: "chainlink"
+    address: "0x132d3C0B1D2cEa0BC552588063bdBb210FDeecfA"
 # TUSD:
 #   address: "0x14016E85a25aeb13065688cAFB43044C2ef86784"
 #   decimals: 18

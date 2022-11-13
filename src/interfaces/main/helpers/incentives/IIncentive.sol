@@ -28,6 +28,9 @@ import "../../../../lib/Decimals.sol";
  * @notice Interface for an instance of the main fund's incentives.
  */
 interface IIncentive {
+    /** Events */
+    event UserQualified(address indexed userAddress);
+
     /*******************************/
     /** Functions to read metadata */
     /*******************************/

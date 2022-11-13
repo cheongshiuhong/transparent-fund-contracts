@@ -23,6 +23,7 @@ export type MainFund = {
     humanResources: Contract;
     accounting: Contract;
     frontOffice: Contract;
+    frontOfficeParameters: Contract;
     incentivesManager: Contract;
     incentives: Record<string, Contract>;
 };

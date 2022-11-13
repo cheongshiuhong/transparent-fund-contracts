@@ -732,14 +732,14 @@ const interactDirectDepositIntoIncentive = async (
     console.log();
 };
 
-/** Deposit request expired and redeem the deposited tokens  */
-const interactDepositExpiredAndRedeem = async (
+/** Deposit request expired and reclaim the deposited tokens  */
+const interactDepositExpiredAndReclaim = async (
     fund: MainFund,
     user: SignerWithAddress,
     token: Token,
     verbose: boolean
 ): Promise<void> => {
-    console.log(" --- bsc > interact > suite1 > depositExpiredAndRedeem > start --- ");
+    console.log(" --- bsc > interact > suite1 > depositExpiredAndReclaim > start --- ");
 
     // Track states
     const userTokenBalanceBeforeRequest: BigNumber = await token.token.balanceOf(user.address);
@@ -778,24 +778,24 @@ const interactDepositExpiredAndRedeem = async (
     const userFundTokenBalanceAfterProcess: BigNumber = await fund.fundToken.balanceOf(user.address);
     const fundTokenSupplyAfterProcess: BigNumber = await fund.fundToken.totalSupply();
 
-    // Redeem
-    const redeemFromFailedRequestsTxn = await (
-        await fund.frontOffice
-            .connect(user)
-            .redeemFromFailedRequests([(await fund.frontOffice.getUserRequestCount(user.address)) - 1])
-    ).wait();
+    // Reclaim
+    // const reclaimFromFailedRequestTxn = await (
+    //     await fund.frontOffice
+    //         .connect(user)
+    //         .reclaimFromFailedRequest((await fund.frontOffice.getUserRequestCount(user.address)) - 1)
+    // ).wait();
 
     // Track states
-    const userTokenBalanceAfterRedeem: BigNumber = await token.token.balanceOf(user.address);
-    const foTokenBalanceAfterRedeem: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
+    const userTokenBalanceAfterReclaim: BigNumber = await token.token.balanceOf(user.address);
+    const foTokenBalanceAfterReclaim: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
     const fundTokenPriceEnd: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
     const accStateEnd: AccountingState = await fund.accounting.getState();
 
     // Compute states
     const userTokensDeposited = userTokenBalanceBeforeRequest.sub(userTokenBalanceAfterRequest);
     const foTokensDeposited = foTokenBalanceAfterRequest.sub(foTokenBalanceBeforeRequest);
-    const userTokensRedeemed = userTokenBalanceAfterRedeem.sub(userTokenBalanceAfterRequest);
-    const foTokensRedeemed = foTokenBalanceAfterRequest.sub(foTokenBalanceAfterRedeem);
+    const userTokensReclaimed = userTokenBalanceAfterReclaim.sub(userTokenBalanceAfterRequest);
+    const foTokensReclaimed = foTokenBalanceAfterRequest.sub(foTokenBalanceAfterReclaim);
     const userFundTokensReceived = userFundTokenBalanceAfterProcess.sub(userFundTokenBalanceBeforeProcess);
     const fundTokensMinted = fundTokenSupplyAfterProcess.sub(fundTokenSupplyBeforeProcess);
     const accAumIncrease = accStateEnd.aumValue.sub(accStateStart.aumValue);
@@ -806,8 +806,8 @@ const interactDepositExpiredAndRedeem = async (
     if (verbose) {
         console.log(`User Tokens Deposited: ${userTokensDeposited}`);
         console.log(`FrontOffice Tokens Deposited: ${foTokensDeposited}`);
-        console.log(`User Tokens Redeemed: ${userTokensRedeemed}`);
-        console.log(`FrontOffice Tokens Redeemed: ${foTokensRedeemed}`);
+        console.log(`User Tokens Reclaimed: ${userTokensReclaimed}`);
+        console.log(`FrontOffice Tokens Reclaimed: ${foTokensReclaimed}`);
         console.log(`User Fund Tokens Received: ${userFundTokensReceived}`);
         console.log(`Fund Tokens Minted: ${fundTokensMinted}`);
         console.log(`Fund Token Prices: ${fundTokenPriceStart} --> ${fundTokenPriceEnd}`);
@@ -818,7 +818,7 @@ const interactDepositExpiredAndRedeem = async (
 
     // Assert states
     helpers.assert(userTokensDeposited.eq(foTokensDeposited), "tokens deposited do not match");
-    helpers.assert(userTokensRedeemed.eq(foTokensRedeemed), "tokens redeemed do not match");
+    helpers.assert(userTokensReclaimed.eq(foTokensReclaimed), "tokens reclaimed do not match");
     helpers.assert(userFundTokensReceived.eq(fundTokensMinted), "fund tokens received and minted do not match");
     // 5 wei of allowance for rounding errors in fund token price ($5e-18)
     helpers.assert(fundTokenPriceEnd.sub(fundTokenPriceStart).abs().lt(5), "fund token price changed unexpectedly");
@@ -829,20 +829,20 @@ const interactDepositExpiredAndRedeem = async (
     console.log(`Approve Request Deposit Gas Used: ${helpers.formatGas(approveRequestDepositTxn.gasUsed)}`);
     console.log(`Request Deposit Gas Used: ${helpers.formatGas(requestDepositTxn.gasUsed)}`);
     console.log(`Process Deposits Gas Used: ${helpers.formatGas(processDepositsTxn.gasUsed)}`);
-    console.log(`Redeem From Failed Requests Gas Used: ${helpers.formatGas(redeemFromFailedRequestsTxn.gasUsed)}`);
+    // console.log(`Reclaim From Failed Request Gas Used: ${helpers.formatGas(reclaimFromFailedRequestTxn.gasUsed)}`);
 
-    console.log(" --- bsc > interact > suite1 > depositExpiredAndRedeem > done --- ");
+    console.log(" --- bsc > interact > suite1 > depositExpiredAndReclaim > done --- ");
     console.log();
 };
 
-/** Deposit request insufficient output and redeem the deposited tokens  */
-const interactDepositInsufficientOutputAndRedeem = async (
+/** Deposit request insufficient output and reclaim the deposited tokens  */
+const interactDepositInsufficientOutputAndReclaim = async (
     fund: MainFund,
     user: SignerWithAddress,
     token: Token,
     verbose: boolean
 ): Promise<void> => {
-    console.log(" --- bsc > interact > suite1 > depositInsufficientOutputAndRedeem > start --- ");
+    console.log(" --- bsc > interact > suite1 > depositInsufficientOutputAndReclaim > start --- ");
 
     // Track states
     const userTokenBalanceBeforeRequest: BigNumber = await token.token.balanceOf(user.address);
@@ -881,24 +881,24 @@ const interactDepositInsufficientOutputAndRedeem = async (
     const userFundTokenBalanceAfterProcess: BigNumber = await fund.fundToken.balanceOf(user.address);
     const fundTokenSupplyAfterProcess: BigNumber = await fund.fundToken.totalSupply();
 
-    // Redeem
-    const redeemFromFailedRequestsTxn = await (
-        await fund.frontOffice
-            .connect(user)
-            .redeemFromFailedRequests([(await fund.frontOffice.getUserRequestCount(user.address)) - 1])
-    ).wait();
+    // Reclaim
+    // const reclaimFromFailedRequestTxn = await (
+    //     await fund.frontOffice
+    //         .connect(user)
+    //         .reclaimFromFailedRequest((await fund.frontOffice.getUserRequestCount(user.address)) - 1)
+    // ).wait();
 
     // Track states
-    const userTokenBalanceAfterRedeem: BigNumber = await token.token.balanceOf(user.address);
-    const foTokenBalanceAfterRedeem: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
+    const userTokenBalanceAfterReclaim: BigNumber = await token.token.balanceOf(user.address);
+    const foTokenBalanceAfterReclaim: BigNumber = await token.token.balanceOf(fund.frontOffice.address);
     const fundTokenPriceEnd: BigNumber = (await fund.accounting.getFundTokenPrice())[0];
     const accStateEnd: AccountingState = await fund.accounting.getState();
 
     // Compute states
     const userTokensDeposited = userTokenBalanceBeforeRequest.sub(userTokenBalanceAfterRequest);
     const foTokensDeposited = foTokenBalanceAfterRequest.sub(foTokenBalanceBeforeRequest);
-    const userTokensRedeemed = userTokenBalanceAfterRedeem.sub(userTokenBalanceAfterRequest);
-    const foTokensRedeemed = foTokenBalanceAfterRequest.sub(foTokenBalanceAfterRedeem);
+    const userTokensReclaimed = userTokenBalanceAfterReclaim.sub(userTokenBalanceAfterRequest);
+    const foTokensReclaimed = foTokenBalanceAfterRequest.sub(foTokenBalanceAfterReclaim);
     const userFundTokensReceived = userFundTokenBalanceAfterProcess.sub(userFundTokenBalanceBeforeProcess);
     const fundTokensMinted = fundTokenSupplyAfterProcess.sub(fundTokenSupplyBeforeProcess);
     const accAumIncrease = accStateEnd.aumValue.sub(accStateStart.aumValue);
@@ -909,8 +909,8 @@ const interactDepositInsufficientOutputAndRedeem = async (
     if (verbose) {
         console.log(`User Tokens Deposited: ${userTokensDeposited}`);
         console.log(`FrontOffice Tokens Deposited: ${foTokensDeposited}`);
-        console.log(`User Tokens Redeemed: ${userTokensRedeemed}`);
-        console.log(`FrontOffice Tokens Redeemed: ${foTokensRedeemed}`);
+        console.log(`User Tokens Reclaimed: ${userTokensReclaimed}`);
+        console.log(`FrontOffice Tokens Reclaimed: ${foTokensReclaimed}`);
         console.log(`User Fund Tokens Received: ${userFundTokensReceived}`);
         console.log(`Fund Tokens Minted: ${fundTokensMinted}`);
         console.log(`Fund Token Prices: ${fundTokenPriceStart} --> ${fundTokenPriceEnd}`);
@@ -921,7 +921,7 @@ const interactDepositInsufficientOutputAndRedeem = async (
 
     // Assert states
     helpers.assert(userTokensDeposited.eq(foTokensDeposited), "tokens deposited do not match");
-    helpers.assert(userTokensRedeemed.eq(foTokensRedeemed), "tokens redeemed do not match");
+    helpers.assert(userTokensReclaimed.eq(foTokensReclaimed), "tokens reclaimed do not match");
     helpers.assert(userFundTokensReceived.eq(fundTokensMinted), "fund tokens received and minted do not match");
     // 5 wei of allowance for rounding errors in fund token price ($5e-18)
     helpers.assert(fundTokenPriceEnd.sub(fundTokenPriceStart).abs().lt(5), "fund token price changed unexpectedly");
@@ -932,9 +932,9 @@ const interactDepositInsufficientOutputAndRedeem = async (
     console.log(`Approve Request Deposit Gas Used: ${helpers.formatGas(approveRequestDepositTxn.gasUsed)}`);
     console.log(`Request Deposit Gas Used: ${helpers.formatGas(requestDepositTxn.gasUsed)}`);
     console.log(`Process Deposits Gas Used: ${helpers.formatGas(processDepositsTxn.gasUsed)}`);
-    console.log(`Redeem From Failed Requests Gas Used: ${helpers.formatGas(redeemFromFailedRequestsTxn.gasUsed)}`);
+    // console.log(`Reclaim From Failed Request Gas Used: ${helpers.formatGas(reclaimFromFailedRequestTxn.gasUsed)}`);
 
-    console.log(" --- bsc > interact > suite1 > depositInsufficientOutputAndRedeem > done --- ");
+    console.log(" --- bsc > interact > suite1 > depositInsufficientOutputAndReclaim > done --- ");
     console.log();
 };
 
@@ -948,8 +948,8 @@ export default async (state: ContractsState, verbose = false): Promise<void> => 
     await interactMultipleDepositsAndWithdrawals(state.mainFund, state.signers, state.tokens[0], verbose);
     await interactDepositIncentiveWithdraw(state.mainFund, state.mainFund.roles.holders[1], state.tokens[1], verbose);
     await interactDirectDepositIntoIncentive(state.mainFund, state.mainFund.roles.holders[2], state.tokens[2], verbose);
-    await interactDepositExpiredAndRedeem(state.mainFund, state.mainFund.roles.holders[1], state.tokens[1], verbose);
-    await interactDepositInsufficientOutputAndRedeem(
+    await interactDepositExpiredAndReclaim(state.mainFund, state.mainFund.roles.holders[1], state.tokens[1], verbose);
+    await interactDepositInsufficientOutputAndReclaim(
         state.mainFund,
         state.mainFund.roles.holders[1],
         state.tokens[1],

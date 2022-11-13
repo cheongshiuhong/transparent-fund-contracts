@@ -49,16 +49,14 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
     using FrontOfficeHelpers for FrontOfficeHelpers.Request;
     using FrontOfficeHelpers for FrontOfficeHelpers.Queue;
 
-    /** Withdrawal state struct */
-    struct WithdrawalState {
-        uint256 maxValuePerPeriod;
-        uint256 blocksPerPeriod;
-        uint256 currentBlock;
-        uint256 currentValue;
-    }
+    /** Events */
+    event RequestCreated(address indexed userAddress, RequestAccessor accessor);
+    event RequestCancelled(address indexed userAddress, RequestAccessor accessor);
+    event RequestReclaimed(address indexed userAddress, RequestAccessor accessor);
+    event DepositsProcessed(address indexed tokenAddress, uint256 amount);
+    event WithdrawalsProcessed(address indexed tokenAddress, uint256 amount);
 
     /** States */
-    mapping(address => uint256) private _availableWithdrawalAmounts;
     mapping(address => FrontOfficeHelpers.Queue) private _depositsQueues;
     mapping(address => FrontOfficeHelpers.Queue) private _withdrawalsQueues;
     mapping(address => RequestAccessor[]) private _requestsAccessors;
@@ -66,7 +64,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
     /** Parameters */
     IFrontOfficeParameters private immutable _parameters;
 
-    /** Constructor  */
+    /** Constructor */
     constructor(
         address fundAddress,
         address parametersAddress
@@ -103,18 +101,6 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
     }
 
     /**
-     * Gets a user request with the accessor.
-     *
-     * @param accessor - The accessor to lookup.
-     * @return - The user's request copied into memory.
-     */
-    function getUserRequestByAccessor(
-        RequestAccessor memory accessor
-    ) external view override returns (FrontOfficeHelpers.Request memory) {
-        return _getUserRequestByAccessor(accessor);
-    }
-
-    /**
      * Internal fuction to get the reference to a user request with the accessor.
      *
      * @param accessor - The accessor to lookup. 
@@ -126,24 +112,6 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         return accessor.isDeposit
             ? _depositsQueues[accessor.token].requests[accessor.queueNumber]
             : _withdrawalsQueues[accessor.token].requests[accessor.queueNumber];
-    }
-
-    /**
-     * Gets a user request with the index.
-     *
-     * @param userAddress - The address of the user to lookup.
-     * @param index - The index to lookup.
-     * @return - The request accessor copied into memory.
-     * @return - The user request copied into memory.
-     */
-    function getUserRequestByIndex(
-        address userAddress,
-        uint256 index
-    ) external view override returns (
-        RequestAccessor memory,
-        FrontOfficeHelpers.Request memory
-    ) {
-        return _getUserRequestByIndex(userAddress, index);
     }
 
     /**
@@ -163,6 +131,24 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
     ) {
         RequestAccessor memory accessor = _requestsAccessors[userAddress][index];
         return (accessor, _getUserRequestByAccessor(accessor));
+    }
+
+    /**
+     * Gets a user request with the index.
+     *
+     * @param userAddress - The address of the user to lookup.
+     * @param index - The index to lookup.
+     * @return - The request accessor copied into memory.
+     * @return - The user request copied into memory.
+     */
+    function getUserRequestByIndex(
+        address userAddress,
+        uint256 index
+    ) external view override returns (
+        RequestAccessor memory,
+        FrontOfficeHelpers.Request memory
+    ) {
+        return _getUserRequestByIndex(userAddress, index);
     }
 
     /**
@@ -186,7 +172,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
     function getWithdrawalsQueueLength(
         address tokenAddress
     ) external view override returns (uint256) {
-        return _depositsQueues[tokenAddress].length();
+        return _withdrawalsQueues[tokenAddress].length();
     }
 
     /**
@@ -240,14 +226,16 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
             _msgSender(), amountIn, minAmountOut, blockDeadline, incentiveAddress
         );
 
-        // Push the accessor into the user's accessors array
-        _requestsAccessors[_msgSender()].push(
-            RequestAccessor({
-                isDeposit: true,
-                token: tokenAddress,
-                queueNumber: queueNumber
-            })
-        );
+        // Push the accessor into the user's accessors array and emit the event
+        RequestAccessor memory requestAccessor = RequestAccessor({
+            isDeposit: true,
+            token: tokenAddress,
+            queueNumber: queueNumber
+        });
+        _requestsAccessors[_msgSender()].push(requestAccessor);
+
+        // Emit the event
+        emit RequestCreated(_msgSender(), requestAccessor);
     }
 
     /**
@@ -269,7 +257,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         parameters.requireAllowedToken(tokenAddress);
 
         // Require that user has no pending requests
-         uint256 requestCount = getUserRequestCount(_msgSender());
+        uint256 requestCount = getUserRequestCount(_msgSender());
         if (requestCount > 0) {
             FrontOfficeHelpers.Request storage request;
             (, request) = _getUserRequestByIndex(_msgSender(), requestCount - 1);
@@ -296,19 +284,19 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
             _msgSender(), amountIn, minAmountOut, blockDeadline, address(0)
         );
 
-        // Push the accessor into the user's accessors array
-        _requestsAccessors[_msgSender()].push(
-            RequestAccessor({
-                isDeposit: false,
-                token: tokenAddress,
-                queueNumber: queueNumber
-            })
-        );
+        // Push the accessor into the user's accessors array and emit the event
+        RequestAccessor memory requestAccessor = RequestAccessor({
+            isDeposit: false,
+            token: tokenAddress,
+            queueNumber: queueNumber
+        });
+        _requestsAccessors[_msgSender()].push(requestAccessor);
+
+        // Emit the event
+        emit RequestCreated(_msgSender(), requestAccessor);
     }
 
-    /**
-     * Cancels the latest pending request.
-     */
+    /** Cancels the latest pending request. */
     function cancelLatestRequest() external
         nonReentrant
         whenNotPaused
@@ -329,39 +317,58 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         request.setCancelled();
 
         // Return the tokens
-        IERC20Metadata(accessor.token).safeTransfer(
-            _msgSender(), request.amountIn
-        );
+        if (accessor.isDeposit) {
+            IERC20Metadata(accessor.token).safeTransfer(
+                _msgSender(), request.amountIn
+            );
+        } else {
+            getFund().getFundToken().safeTransfer(
+                _msgSender(), request.amountIn
+            );
+        }
+
+        // Emit the event
+        emit RequestCancelled(_msgSender(), accessor);
     }
 
     /**
-     * Redeem tokens sent in from failed requests.
+     * Reclaims the tokens sent in from failed requests.
      *
-     * @param indexes - The indexes of the failed requests in the user's array.
+     * @param index - The index of the failed request to reclaim.
      */
-    function redeemFromFailedRequests(
-        uint256[] calldata indexes
-    ) external nonReentrant {
+    function reclaimFromFailedRequest(
+        uint256 index
+    ) external nonReentrant override {
         // Get the reference to the fund token
         IMainFundToken fundToken = getFund().getFundToken();
-
+        
         RequestAccessor memory accessor;
-        FrontOfficeHelpers.Request storage request;
-        for (uint i = 0; i < indexes.length; i++) {
-            (accessor, request) = _getUserRequestByIndex(_msgSender(), indexes[i]);
+        FrontOfficeHelpers.Request storage requestRef;
+        (accessor, requestRef) = _getUserRequestByIndex(_msgSender(), index);
 
-            // Skip if not failed
-            if (!request.isFailed()) continue;
+        // Only unreclaimed failed requests can be redeemed
+        require(
+            requestRef.isFailed() || !requestRef.isReclaimed,
+            "FrontOffice: request is not reclaimable"
+        );
 
-            // Deposits - return the deposited tokens
-            if (accessor.isDeposit)
-                IERC20Metadata(accessor.token).safeTransfer(
-                    request.user, request.amountIn
-                );
+        // Set as redeemed
+        requestRef.isReclaimed = true;
 
-            // Withdrawals - return the deposited fund tokens
-            else fundToken.safeTransfer(request.user, request.amountIn);
+        // Deposits - return the deposited tokens
+        if (accessor.isDeposit) {
+            IERC20Metadata(accessor.token).safeTransfer(
+                requestRef.user, requestRef.amountIn
+            );
         }
+
+        // Withdrawals - return the deposited fund tokens
+        else {
+            fundToken.safeTransfer(requestRef.user, requestRef.amountIn);
+        }
+
+        // Emit the event
+        emit RequestReclaimed(_msgSender(), accessor);
     }
 
     /***************************************************************/
@@ -437,25 +444,8 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
                 request.incentive, request.user
             );
 
-            // Handle errors
-            if (validityCode == IIncentivesManager.ValidityCode.NOT_FOUND)
-                requestRef.setIncentiveNotFound(computedAmountOut);
-
-            else if (validityCode == IIncentivesManager.ValidityCode.NOT_QUALIFIED)
-                requestRef.setIncentiveNotQualified(computedAmountOut);
-
-            // Perform regular deposit by minting if no incentive applicable
-            else if (validityCode == IIncentivesManager.ValidityCode.NOT_APPLICABLE) {
-                // Mint the fund tokens to the user
-                working.fundToken.token.mint(request.user, computedAmountOut);
-
-                // Set to successful and record the amount to send to the fund
-                requestRef.setSuccessful(computedAmountOut);
-                working.amountTokensToSendToFund += request.amountIn;
-            }
-
             // Mint directly into the incentive if valid
-            else if (validityCode == IIncentivesManager.ValidityCode.VALID) {
+            if (validityCode == IIncentivesManager.ValidityCode.VALID) {
                 // Record the direct deposit into the incentive contract
                 IIncentive(request.incentive)
                     .recordDirectDeposit(request.user, computedAmountOut);
@@ -468,6 +458,25 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
                 working.amountTokensToSendToFund += request.amountIn;
             }
 
+            // Perform regular deposit by minting if no incentive applicable
+            else if (validityCode == IIncentivesManager.ValidityCode.NOT_APPLICABLE) {
+                // Mint the fund tokens to the user
+                working.fundToken.token.mint(request.user, computedAmountOut);
+
+                // Set to successful and record the amount to send to the fund
+                requestRef.setSuccessful(computedAmountOut);
+                working.amountTokensToSendToFund += request.amountIn;
+            }
+
+            // Handle errors
+            else if (validityCode == IIncentivesManager.ValidityCode.NOT_FOUND) {
+                requestRef.setIncentiveNotFound(computedAmountOut);
+            }
+
+            else if (validityCode == IIncentivesManager.ValidityCode.NOT_QUALIFIED) {
+                requestRef.setIncentiveNotQualified(computedAmountOut);
+            }
+
             // If not handled --> set unhandled failure
             else { requestRef.setUnhandled(); }
 
@@ -478,7 +487,7 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         // Record with accounting the amount of fund tokens minted
         working.accounting.recordDeposits(
             // Deposit value is the number of tokens x token price
-            Decimals.Number(working.amountTokensToSendToFund, 18)
+             Decimals.Number(working.amountTokensToSendToFund, 18)
                 .mul(working.token.price)
                 .value,
             // The difference of the supply now vs what was
@@ -490,6 +499,9 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
         working.token.token.safeTransfer(
             getFundAddress(), working.amountTokensToSendToFund
         );
+
+        // Emit the event
+        emit DepositsProcessed(tokenAddress, working.amountTokensToSendToFund);
     }
 
     /**
@@ -592,6 +604,9 @@ contract FrontOffice is ReentrancyGuard, MainFundPausableHelper, IFrontOffice {
             // the supply now is the amount that was burned
             working.fundToken.supply - working.fundToken.token.totalSupply()
         );
+
+        // Emit the event
+        emit WithdrawalsProcessed(tokenAddress, working.amountWithdrawed);
     }
 
     /****************************************************/

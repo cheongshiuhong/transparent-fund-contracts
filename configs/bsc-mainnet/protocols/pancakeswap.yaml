@@ -189,12 +189,12 @@ pairs:
   # WOO-BNB:
   #   address: "0x89eE0491CE55d2f7472A97602a95426216167189"
   #   pid: 45
-  # ETH-USDC:
-  #   address: "0xEa26B78255Df2bBC31C1eBf60010D78670185bD0"
-  #   pid: 44
-  # BTCB-ETH:
-  #   address: "0xD171B26E4484402de70e3Ea256bE5A2630d7e88D"
-  #   pid: 43
+  ETH-USDC:
+    address: "0xEa26B78255Df2bBC31C1eBf60010D78670185bD0"
+    pid: 44
+  BTCB-ETH:
+    address: "0xD171B26E4484402de70e3Ea256bE5A2630d7e88D"
+    pid: 43
   # MBOX-BNB:
   #   address: "0x8FA59693458289914dB0097F5F366d771B7a7C3F"
   #   pid: 42
@@ -210,9 +210,9 @@ pairs:
   # DOGE-BNB:
   #   address: "0xac109c8025f272414fd9e2faa805a583708a017f"
   #   pid: 37
-  # BTCB-BUSD:
-  #   address: "0xf45cd219aef8618a92baa7ad848364a158a24f33"
-  #   pid: 36
+  BTCB-BUSD:
+    address: "0xf45cd219aef8618a92baa7ad848364a158a24f33"
+    pid: 36
   # ALPACA-BUSD:
   #   address: "0x7752e1fa9f3a2e860856458517008558deb989e3"
   #   pid: 35
@@ -258,12 +258,12 @@ pairs:
   # LTC-BNB:
   #   address: "0x71b01eBdDD797c8E9E0b003ea2f4FD207fBF46cC"
   #   pid: 21
-  # USDC-BUSD:
-  #   address: "0x2354ef4DF11afacb85a5C7f98B624072ECcddbB1"
-  #   pid: 20
-  # DAI-BUSD:
-  #   address: "0x66FDB2eCCfB58cF098eaa419e5EfDe841368e489"
-  #   pid: 19
+  USDC-BUSD:
+    address: "0x2354ef4DF11afacb85a5C7f98B624072ECcddbB1"
+    pid: 20
+  DAI-BUSD:
+    address: "0x66FDB2eCCfB58cF098eaa419e5EfDe841368e489"
+    pid: 19
   # VAI-BUSD:
   #   address: "0x133ee93FE93320e1182923E1a640912eDE17C90C"
   #   pid: 18
